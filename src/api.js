@@ -115,6 +115,31 @@ const StockAPI = {
       }
     }
     return true;
+  },
+
+  async exportExcel() {
+    const res = await fetch("/api/stock/export-excel");
+    if (!res.ok) {
+      throw new Error("Gagal mengunduh file Excel dari server.");
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+
+    const disposition = res.headers.get("content-disposition");
+    let filename = `Rekap Stok Barang Hp dan Dell ${new Date().toISOString().slice(0, 10)}.xlsx`;
+    if (disposition && disposition.includes("filename=")) {
+      const m = disposition.match(/filename="?([^"]+)"?/);
+      if (m && m[1]) filename = m[1];
+    }
+
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    return filename;
   }
 };
 

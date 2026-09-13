@@ -1,9 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { Boxes, LayoutTemplate, Upload, Download, Send, PlusCircle, Search, Layers, Laptop, Archive, AlertTriangle, XCircle } from 'lucide-react';
+import { Boxes, LayoutTemplate, Upload, Download, Send, PlusCircle, Search, Layers, Laptop, Archive, AlertTriangle, XCircle, RotateCcw, Check, FileSpreadsheet } from 'lucide-react';
 import StockAPI from './api';
 import Dashboard from './components/Dashboard';
 import StockList from './components/StockList';
 import StockForm from './components/StockForm';
+import ReduceStockModal from './components/ReduceStockModal';
 
 function App() {
   const [items, setItems] = useState([]);
@@ -14,6 +15,41 @@ function App() {
   
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
+  const [stockModalItem, setStockModalItem] = useState(null);
+  const [stockModalMode, setStockModalMode] = useState('reduce'); // 'reduce' | 'add'
+
+  // Riwayat perubahan untuk fitur Undo
+  const [history, setHistory] = useState([]);
+  const [toastMessage, setToastMessage] = useState(null);
+  const [isExporting, setIsExporting] = useState(false);
+
+  const showToast = (msg) => {
+    setToastMessage(msg);
+    setTimeout(() => setToastMessage(null), 3800);
+  };
+
+  const handleExportExcel = async () => {
+    try {
+      setIsExporting(true);
+      const filename = await StockAPI.exportExcel();
+      showToast(`✓ File Excel "${filename}" berhasil diekspor`);
+    } catch (err) {
+      console.error('Gagal export excel:', err);
+      showToast('⚠️ Gagal mengekspor file Excel. Pastikan server backend aktif.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const pushHistory = (desc) => {
+    setHistory((prev) => [
+      ...prev.slice(-19), // simpan maksimal 20 riwayat
+      {
+        items: JSON.parse(JSON.stringify(items)),
+        desc
+      }
+    ]);
+  };
 
   useEffect(() => {
     const loadData = async () => {
@@ -21,10 +57,14 @@ function App() {
       const data = await StockAPI.getAllStock();
       if (data) {
         setItems(data);
+        localStorage.setItem("techstock_modular_inventory", JSON.stringify(data));
       } else {
         // Fallback local fetch
         fetch('/data/stock_inventory.json').then(res => res.json()).then(json => {
-          if (json) setItems(json);
+          if (json) {
+            setItems(json);
+            localStorage.setItem("techstock_modular_inventory", JSON.stringify(json));
+          }
         }).catch(() => {});
       }
     };
@@ -77,6 +117,8 @@ function App() {
     const newQty = Math.max(0, oldQty + delta);
     if (newQty === oldQty) return;
 
+    pushHistory(`Tambah stok "${item.name}" (+${delta})`);
+
     const newItems = [...items];
     newItems[itemIdx] = {
       ...item,
@@ -87,10 +129,50 @@ function App() {
     
     setItems(newItems);
     await StockAPI.updateQuantity(id, delta);
+    showToast(`Stok "${item.name}" bertambah menjadi ${newQty}`);
+  };
+
+  const handleRequestReduce = (item) => {
+    setStockModalMode('reduce');
+    setStockModalItem(item);
+  };
+
+  const handleRequestAdd = (item) => {
+    setStockModalMode('add');
+    setStockModalItem(item);
+  };
+
+  const handleConfirmStockAdjust = async ({ id, amount, reduceAmount, newQty, location, notes, itemName, mode }) => {
+    const itemIdx = items.findIndex(u => u.id === id);
+    if (itemIdx < 0) return;
+
+    const adjustAmount = amount || reduceAmount || 1;
+    const isAdd = mode === 'add';
+
+    pushHistory(`${isAdd ? 'Penambahan' : 'Pengurangan'} ${adjustAmount} unit "${itemName}"`);
+
+    const item = items[itemIdx];
+    const updatedUnit = {
+      ...item,
+      qty: newQty,
+      location,
+      notes,
+      status: newQty > 0 ? "ready" : "sold",
+      updatedAt: new Date().toISOString()
+    };
+
+    const newItems = [...items];
+    newItems[itemIdx] = updatedUnit;
+
+    setItems(newItems);
+    setStockModalItem(null);
+    await StockAPI.saveUnit(updatedUnit);
+    showToast(`✓ ${isAdd ? 'Penambahan' : 'Pengurangan'} stok "${itemName}" berhasil disimpan (${isAdd ? 'Total' : 'Sisa'}: ${newQty} unit)`);
   };
 
   const handleSaveUnit = async (unitObj) => {
     const isEdit = !!editingItem;
+    pushHistory(isEdit ? `Edit "${unitObj.name}"` : `Tambah "${unitObj.name}"`);
     
     let newItems = [...items];
     if (isEdit) {
@@ -104,6 +186,7 @@ function App() {
     setShowForm(false);
     setEditingItem(null);
     await StockAPI.saveUnit(unitObj);
+    showToast(isEdit ? `Data "${unitObj.name}" diperbarui` : `Unit baru "${unitObj.name}" berhasil ditambahkan`);
   };
 
   const handleDelete = async (id) => {
@@ -111,8 +194,21 @@ function App() {
     if (!item) return;
     if (!window.confirm(`Hapus "${item.name}" dari daftar stok berjalan?`)) return;
 
+    pushHistory(`Hapus unit "${item.name}"`);
     setItems(items.filter(u => u.id !== id));
     await StockAPI.deleteUnit(id);
+    showToast(`Unit "${item.name}" telah dihapus`);
+  };
+
+  const handleUndo = async () => {
+    if (history.length === 0) return;
+    const lastState = history[history.length - 1];
+    const newHistory = history.slice(0, -1);
+    
+    setHistory(newHistory);
+    setItems(lastState.items);
+    await StockAPI.saveAll(lastState.items);
+    showToast(`↺ Berhasil Undo: Membatalkan ${lastState.desc}`);
   };
 
   const openAddForm = () => {
@@ -144,13 +240,41 @@ function App() {
     <div className="app-container">
       <header className="app-header">
         <div className="header-brand">
-          <div className="brand-icon"><Boxes size={24} /></div>
+          <div className="brand-icon">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <path d="M12 2.5L20 7.1V16.9L12 21.5L4 16.9V7.1L12 2.5Z" stroke="#38BDF8" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 12L20 7.4" stroke="#38BDF8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 12V21.5" stroke="#38BDF8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <path d="M12 12L4 7.4" stroke="#38BDF8" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+              <circle cx="12" cy="12" r="2.2" fill="#FFFFFF"/>
+            </svg>
+          </div>
           <div>
             <h1 className="brand-title">Daftar Stok Berjalan</h1>
-            <p className="brand-subtitle">Kelola & pantau ketersediaan barang ready jual (React Version)</p>
           </div>
         </div>
         <div className="header-actions">
+          <button
+            type="button"
+            className="btn btn-secondary btn-undo"
+            onClick={handleUndo}
+            disabled={history.length === 0}
+            title={history.length > 0 ? `Batalkan: ${history[history.length - 1].desc}` : "Belum ada riwayat perubahan"}
+          >
+            <RotateCcw size={15} />
+            <span>Undo</span>
+            {history.length > 0 && <span className="undo-badge">{history.length}</span>}
+          </button>
+          <button
+            type="button"
+            className="btn btn-export-excel"
+            onClick={handleExportExcel}
+            disabled={isExporting}
+            title="Export data stok terbaru ke format Excel asli (Rekap Stok Barang HP dan Dell)"
+          >
+            <FileSpreadsheet size={16} />
+            <span>{isExporting ? 'Mengekspor...' : 'Export Excel'}</span>
+          </button>
           <button className="btn btn-primary" onClick={openAddForm}>
             <PlusCircle size={16} />
             <span>+ Tambah Barang</span>
@@ -208,6 +332,8 @@ function App() {
       <StockList 
         items={filteredItems} 
         onStockChange={handleStockChange} 
+        onRequestReduce={handleRequestReduce}
+        onRequestAdd={handleRequestAdd}
         onDelete={handleDelete}
         onEdit={openEditForm}
       />
@@ -218,6 +344,23 @@ function App() {
         onClose={() => setShowForm(false)} 
         onSave={handleSaveUnit} 
       />
+
+      <ReduceStockModal
+        show={!!stockModalItem}
+        item={stockModalItem}
+        mode={stockModalMode}
+        onClose={() => setStockModalItem(null)}
+        onConfirm={handleConfirmStockAdjust}
+      />
+
+      {toastMessage && (
+        <div className="toast-shelf">
+          <div className="toast-item">
+            <Check size={16} color="#10B981" />
+            <span>{toastMessage}</span>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

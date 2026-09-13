@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Search, MapPin, UserCheck, Trash2, Edit } from 'lucide-react';
 
-const StockList = ({ items, onStockChange, onDelete, onEdit }) => {
+const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDelete, onEdit }) => {
   const formatCategory = (cat) => {
     switch (cat) {
       case 'laptop': return 'Laptop / Notebook';
@@ -30,7 +30,7 @@ const StockList = ({ items, onStockChange, onDelete, onEdit }) => {
         <div className="table-quick-info">
           <span className="info-badge">
             <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
-            Klik tombol [ - ] untuk take out order
+            Klik tombol [ - ] atau [ + ] untuk pop up penyesuaian stok & alokasi mapping
           </span>
         </div>
       </div>
@@ -81,9 +81,22 @@ const StockList = ({ items, onStockChange, onDelete, onEdit }) => {
                   </td>
                   <td style={{textAlign: 'center'}}>
                     <div className="stock-stepper-compact">
-                      <button className="btn-step minus" onClick={() => onStockChange(item.id, -1)}>-</button>
+                      <button
+                        className="btn-step minus"
+                        onClick={() => onRequestReduce ? onRequestReduce(item) : onStockChange(item.id, -1)}
+                        disabled={item.qty <= 0}
+                        title={item.qty <= 0 ? "Stok sudah habis (0)" : "Kurangi stok (Buka Pop Up)"}
+                      >
+                        -
+                      </button>
                       <span className={`step-qty-val ${qtyClass}`}>{item.qty}</span>
-                      <button className="btn-step plus" onClick={() => onStockChange(item.id, 1)}>+</button>
+                      <button
+                        className="btn-step plus"
+                        onClick={() => onRequestAdd ? onRequestAdd(item) : onStockChange(item.id, 1)}
+                        title="Tambah stok (Buka Pop Up)"
+                      >
+                        +
+                      </button>
                     </div>
                   </td>
                   <td>
