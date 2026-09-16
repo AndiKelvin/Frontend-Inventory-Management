@@ -140,6 +140,56 @@ const StockAPI = {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     return filename;
+  },
+
+  async exportSmb(brand) {
+    const res = await fetch(`/api/stock/export-smb?brand=${encodeURIComponent(brand)}`);
+    if (!res.ok) {
+      throw new Error('Gagal mengunduh file Excel SMB dari server.');
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+
+    const disposition = res.headers.get('content-disposition');
+    let filename = `UPDATE STOCK ${brand.toUpperCase()} SMB.xlsx`;
+    if (disposition && disposition.includes('filename=')) {
+      const m = disposition.match(/filename="?([^"]+)"?/);
+      if (m && m[1]) filename = m[1];
+    }
+
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    return filename;
+  },
+
+  async exportDistri(brand) {
+    const res = await fetch(`/api/stock/export-distri?brand=${encodeURIComponent(brand)}`);
+    if (!res.ok) {
+      throw new Error('Gagal mengunduh file Excel Distri dari server.');
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+
+    const disposition = res.headers.get('content-disposition');
+    let filename = `Laporan Stock ${brand.toUpperCase()} Distri.xlsx`;
+    if (disposition && disposition.includes('filename=')) {
+      const m = disposition.match(/filename="?([^"]+)"?/);
+      if (m && m[1]) filename = m[1];
+    }
+
+    a.download = filename;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+    return filename;
   }
 };
 

@@ -282,6 +282,174 @@ body {
   cursor: wait;
 }
 
+.btn-export-smb {
+  background: #2563EB;
+  color: #FFFFFF;
+  border: 1px solid #1D4ED8;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-shadow: 0 1px 3px rgba(37, 99, 235, 0.25);
+}
+
+.btn-export-smb:hover:not(:disabled) {
+  background: #1D4ED8;
+  border-color: #1E40AF;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(37, 99, 235, 0.35);
+}
+
+.btn-export-smb:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.btn-export-distri {
+  background: #7C3AED;
+  color: #FFFFFF;
+  border: 1px solid #6D28D9;
+  transition: all 0.18s ease;
+  display: inline-flex;
+  align-items: center;
+  gap: 0.45rem;
+  box-shadow: 0 1px 3px rgba(124, 58, 237, 0.25);
+}
+
+.btn-export-distri:hover:not(:disabled) {
+  background: #6D28D9;
+  border-color: #5B21B6;
+  transform: translateY(-1px);
+  box-shadow: 0 3px 8px rgba(124, 58, 237, 0.35);
+}
+
+.btn-export-distri:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+/* Modal Pemilihan Brand Export SMB / Distri */
+.export-brand-modal {
+  max-width: 580px;
+}
+
+.export-brand-cards {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 1rem;
+}
+
+@media (max-width: 640px) {
+  .export-brand-cards {
+    grid-template-columns: 1fr;
+  }
+}
+
+.brand-export-card {
+  background: var(--bg-surface, rgba(255, 255, 255, 0.03));
+  border: 1px solid var(--border-default);
+  border-radius: 12px;
+  padding: 1.15rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  cursor: pointer;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  text-align: left;
+  position: relative;
+  overflow: hidden;
+}
+
+.brand-export-card:hover:not(.disabled) {
+  transform: translateY(-3px);
+  border-color: var(--primary, #38BDF8);
+  box-shadow: 0 8px 20px -4px rgba(0, 0, 0, 0.35);
+}
+
+.brand-export-card.hp-export-card:hover:not(.disabled) {
+  border-color: #38BDF8;
+  background: rgba(56, 189, 248, 0.05);
+}
+
+.brand-export-card.dell-export-card:hover:not(.disabled) {
+  border-color: #60A5FA;
+  background: rgba(96, 165, 250, 0.05);
+}
+
+.brand-export-card.disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+}
+
+.brand-export-card-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.5rem;
+  margin-bottom: 0.8rem;
+}
+
+.brand-export-company {
+  font-size: 0.68rem;
+  color: var(--text-muted, #94A3B8);
+  font-weight: 500;
+  text-align: right;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.brand-export-title {
+  margin: 0 0 0.45rem 0;
+  font-size: 0.98rem;
+  font-weight: 700;
+  color: var(--text-primary);
+}
+
+.brand-export-desc {
+  margin: 0 0 1rem 0;
+  font-size: 0.77rem;
+  line-height: 1.45;
+  color: var(--text-secondary, #94A3B8);
+  flex-grow: 1;
+}
+
+.brand-export-btn-action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  width: 100%;
+  padding: 0.55rem 0.85rem;
+  border-radius: 8px;
+  font-size: 0.82rem;
+  font-weight: 600;
+  transition: all 0.15s ease;
+}
+
+.hp-action {
+  background: rgba(56, 189, 248, 0.12);
+  color: #38BDF8;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.brand-export-card.hp-export-card:hover .hp-action {
+  background: #0284C7;
+  color: #FFFFFF;
+  border-color: #0284C7;
+}
+
+.dell-action {
+  background: rgba(96, 165, 250, 0.12);
+  color: #60A5FA;
+  border: 1px solid rgba(96, 165, 250, 0.25);
+}
+
+.brand-export-card.dell-export-card:hover .dell-action {
+  background: #2563EB;
+  color: #FFFFFF;
+  border-color: #2563EB;
+}
+
 .btn-success {
   background: #047857;
   color: var(--text-inverted);

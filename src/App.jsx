@@ -5,6 +5,13 @@ import Dashboard from './components/Dashboard';
 import StockList from './components/StockList';
 import StockForm from './components/StockForm';
 import ReduceStockModal from './components/ReduceStockModal';
+import ExportBrandModal from './components/ExportBrandModal';
+import {
+  exportSmbHpJpg,
+  exportSmbDellJpg,
+  exportDistriHpJpg,
+  exportDistriDellJpg
+} from './services/imageExportService';
 
 function App() {
   const [items, setItems] = useState([]);
@@ -17,6 +24,9 @@ function App() {
   const [editingItem, setEditingItem] = useState(null);
   const [stockModalItem, setStockModalItem] = useState(null);
   const [stockModalMode, setStockModalMode] = useState('reduce'); // 'reduce' | 'add'
+
+  // Modal pemilihan brand untuk Export SMB & Export Distri
+  const [exportModalType, setExportModalType] = useState(null); // 'SMB' | 'Distri' | null
 
   // Riwayat perubahan untuk fitur Undo
   const [history, setHistory] = useState([]);
@@ -36,6 +46,59 @@ function App() {
     } catch (err) {
       console.error('Gagal export excel:', err);
       showToast('⚠️ Gagal mengekspor file Excel. Pastikan server backend aktif.');
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleOpenExportModal = (type) => {
+    setExportModalType(type);
+  };
+
+  const handleSelectExportBrand = (brand) => {
+    try {
+      setIsExporting(true);
+      if (exportModalType === 'SMB') {
+        if (brand === 'hp') {
+          exportSmbHpJpg(items);
+          showToast('✓ Gambar JPG Update Stock SMB HP berhasil diunduh');
+        } else {
+          exportSmbDellJpg(items);
+          showToast('✓ Gambar JPG Update Stock SMB Dell berhasil diunduh');
+        }
+      } else {
+        if (brand === 'hp') {
+          exportDistriHpJpg();
+          showToast('✓ Gambar JPG Laporan Distri HP berhasil diunduh');
+        } else {
+          exportDistriDellJpg();
+          showToast('✓ Gambar JPG Laporan Distri Dell berhasil diunduh');
+        }
+      }
+      setExportModalType(null);
+    } catch (err) {
+      console.error(`Gagal export gambar ${exportModalType}:`, err);
+      showToast(`⚠️ Gagal mengekspor gambar ${exportModalType}. Silakan coba lagi.`);
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const handleSelectExcelBrand = async (brand) => {
+    try {
+      setIsExporting(true);
+      let filename;
+      if (exportModalType === 'SMB') {
+        filename = await StockAPI.exportSmb(brand);
+        showToast(`✓ File Excel SMB ${brand.toUpperCase()} "${filename}" berhasil diekspor`);
+      } else {
+        filename = await StockAPI.exportDistri(brand);
+        showToast(`✓ File Excel Distri ${brand.toUpperCase()} "${filename}" berhasil diekspor`);
+      }
+      setExportModalType(null);
+    } catch (err) {
+      console.error(`Gagal export Excel ${exportModalType}:`, err);
+      showToast(`⚠️ Gagal mengekspor file Excel ${exportModalType}. Pastikan server backend aktif.`);
     } finally {
       setIsExporting(false);
     }
@@ -275,6 +338,26 @@ function App() {
             <FileSpreadsheet size={16} />
             <span>{isExporting ? 'Mengekspor...' : 'Export Excel'}</span>
           </button>
+          <button
+            type="button"
+            className="btn btn-export-smb"
+            onClick={() => handleOpenExportModal('SMB')}
+            disabled={isExporting}
+            title="Export data stok berjalan ke format resmi SMB (HP / Dell)"
+          >
+            <FileSpreadsheet size={16} />
+            <span>Export SMB</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-export-distri"
+            onClick={() => handleOpenExportModal('Distri')}
+            disabled={isExporting}
+            title="Export data stok berjalan ke format resmi Distributor (HP / Dell)"
+          >
+            <FileSpreadsheet size={16} />
+            <span>Export Distri</span>
+          </button>
           <button className="btn btn-primary" onClick={openAddForm}>
             <PlusCircle size={16} />
             <span>+ Tambah Barang</span>
@@ -351,6 +434,15 @@ function App() {
         mode={stockModalMode}
         onClose={() => setStockModalItem(null)}
         onConfirm={handleConfirmStockAdjust}
+      />
+
+      <ExportBrandModal
+        show={!!exportModalType}
+        exportType={exportModalType}
+        onClose={() => setExportModalType(null)}
+        onSelectBrand={handleSelectExportBrand}
+        onSelectExcelBrand={handleSelectExcelBrand}
+        isExporting={isExporting}
       />
 
       {toastMessage && (
