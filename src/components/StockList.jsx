@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
-import { Search, MapPin, UserCheck, Trash2, Edit } from 'lucide-react';
+import React from 'react';
+import { MapPin, UserCheck, Trash2, Edit } from 'lucide-react';
+import { getBookedQty, getAvailableQty } from '../utils/stockUtils';
 
 const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDelete, onEdit }) => {
   const formatCategory = (cat) => {
@@ -29,8 +30,8 @@ const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDele
         </div>
         <div className="table-quick-info">
           <span className="info-badge">
-            <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
-            Klik tombol [ - ] atau [ + ] untuk pop up penyesuaian stok & alokasi mapping
+            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/><path d="M4 17v2"/><path d="M5 18H3"/></svg>
+            Klik [ - ] / [ + ] untuk sesuaikan stok & mapping
           </span>
         </div>
       </div>
@@ -55,6 +56,8 @@ const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDele
               const isSold = item.qty === 0;
               const isLow = item.qty > 0 && item.qty <= 2;
               const qtyClass = isSold ? 'zero' : (isLow ? 'low' : '');
+              const booked = getBookedQty(item);
+              const available = getAvailableQty(item);
 
               return (
                 <tr key={item.id} className={isSold ? 'row-sold' : ''}>
@@ -98,6 +101,64 @@ const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDele
                         +
                       </button>
                     </div>
+
+                    {/* Indikator Booking & Ready Bebas */}
+                    {item.qty > 0 && booked > 0 && (
+                      <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center' }}>
+                        <span style={{
+                          fontSize: '0.66rem',
+                          fontWeight: 700,
+                          color: '#B45309',
+                          background: '#FEF3C7',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          whiteSpace: 'nowrap',
+                          border: '1px solid #FDE68A'
+                        }}>
+                          🔒 {booked} Booking
+                        </span>
+                        <span style={{
+                          fontSize: '0.66rem',
+                          fontWeight: 700,
+                          color: '#15803D',
+                          background: '#DCFCE7',
+                          padding: '1px 5px',
+                          borderRadius: '4px',
+                          whiteSpace: 'nowrap',
+                          border: '1px solid #BBF7D0'
+                        }}>
+                          ✓ {available} Ready Bebas
+                        </span>
+                      </div>
+                    )}
+                    {item.qty > 0 && booked === 0 && (
+                      <div style={{ marginTop: '4px' }}>
+                        <span style={{
+                          fontSize: '0.66rem',
+                          fontWeight: 600,
+                          color: '#15803D',
+                          background: '#F0FDF4',
+                          padding: '1px 5px',
+                          borderRadius: '4px'
+                        }}>
+                          ✓ Bebas Jual
+                        </span>
+                      </div>
+                    )}
+                    {item.qty === 0 && (
+                      <div style={{ marginTop: '4px' }}>
+                        <span style={{
+                          fontSize: '0.66rem',
+                          fontWeight: 600,
+                          color: '#DC2626',
+                          background: '#FEE2E2',
+                          padding: '1px 5px',
+                          borderRadius: '4px'
+                        }}>
+                          Habis
+                        </span>
+                      </div>
+                    )}
                   </td>
                   <td>
                     <div className="loc-map-cell">

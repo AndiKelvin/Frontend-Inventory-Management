@@ -376,7 +376,7 @@ export function exportDistriHpJpg() {
 
   // Hitung tinggi grouping "PC" dan "NOTEBOOK"
   const pcRows = rows.filter((r) => r.group === 'PC');
-  const notebookRows = rows.filter((r) => r.group === 'NOTEBOOK');
+  const _notebookRows = rows.filter((r) => r.group === 'NOTEBOOK');
   const pcTotalHeight = rowHeights.slice(0, pcRows.length).reduce((a, b) => a + b, 0);
   const notebookTotalHeight = rowHeights.slice(pcRows.length).reduce((a, b) => a + b, 0);
 
@@ -677,7 +677,7 @@ export function exportDistriDellJpg() {
 
   // Hitung total tinggi untuk grouping "LATITUDE" dan "OPTIPLEX"
   const latitudeRows = rows.filter((r) => r.group === 'LATITUDE');
-  const optiplexRows = rows.filter((r) => r.group === 'OPTIPLEX');
+  const _optiplexRows = rows.filter((r) => r.group === 'OPTIPLEX');
   const latitudeTotalHeight = rowHeights.slice(0, latitudeRows.length).reduce((a, b) => a + b, 0);
   const optiplexTotalHeight = rowHeights.slice(latitudeRows.length).reduce((a, b) => a + b, 0);
 

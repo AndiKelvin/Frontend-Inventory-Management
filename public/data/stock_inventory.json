@@ -60,21 +60,6 @@
         "updatedAt": "2026-09-12T13:15:00.000Z"
     },
     {
-        "id": "dell-05",
-        "brand": "DELL",
-        "partNumber": "GA7440I7V2",
-        "name": "Latitude 7440 I7-1365U-16GB-512GB-W11P-U-3Y Touch",
-        "category": "laptop",
-        "cpu": "Intel Core i7-1365U",
-        "ram": "16GB",
-        "storage": "512GB SSD",
-        "qty": 2,
-        "status": "ready",
-        "location": "STOCK JKT: Pallazo (2)",
-        "notes": "1 unit pak igun-bekas service | MAPPING: Kak Puput - MR DIY (1)-tgg PO",
-        "updatedAt": "2026-09-12T13:15:00.000Z"
-    },
-    {
         "id": "dell-06",
         "brand": "DELL",
         "partNumber": "GA7450U7V1",
@@ -113,11 +98,11 @@
         "cpu": "Intel Core i7-13700",
         "ram": "16GB",
         "storage": "512GB SSD",
-        "qty": 40,
+        "qty": 38,
         "status": "ready",
-        "location": "Pallazo (40)",
-        "notes": "STOCK JKT: Pallazo (40)",
-        "updatedAt": "2026-09-12T13:15:00.000Z"
+        "location": "Pallazo (38)",
+        "notes": "MAPPING: Take Out 2 unit dari Pallazo (Sisa Pallazo: 38)",
+        "updatedAt": "2026-09-19T12:57:55.689Z"
     },
     {
         "id": "dell-09",
@@ -219,10 +204,10 @@
         "ram": "8GB",
         "storage": "1TB HDD",
         "qty": 62,
+        "location": "PALLAZO (43), KLAIM HP (2), SERVICE (17)",
+        "notes": "Pallazo 43 unit (7 OK, 3 repacking dus), Klaim DOA ke HP (2), Unit service customer (17)",
         "status": "ready",
-        "location": "PALLAZO (45), KLAIM HP (2), SERVICE (15)",
-        "notes": "Pallazo 45 unit (8 OK, 3 repacking dus), Klaim DOA ke HP (2), Unit service customer (15)",
-        "updatedAt": "2026-09-12T13:15:00.000Z"
+        "updatedAt": "2026-09-12T13:58:29.803Z"
     },
     {
         "id": "hp-09",
@@ -248,11 +233,11 @@
         "cpu": "Intel Core i7-1355U",
         "ram": "16GB",
         "storage": "1TB SSD",
-        "qty": 16,
+        "qty": 15,
         "status": "ready",
-        "location": "STOCK JKT: Pallazo (16)",
-        "notes": "STOCK JKT: Pallazo (16)",
-        "updatedAt": "2026-09-12T13:15:00.000Z"
+        "location": "STOCK JKT: Pallazo (15)",
+        "notes": "STOCK JKT: Pallazo (15)",
+        "updatedAt": "2026-09-12T13:56:27.283Z"
     },
     {
         "id": "dell-other-01",
@@ -264,10 +249,10 @@
         "ram": "4GB DDR4",
         "storage": "500GB HDD 2.5\"",
         "qty": 208,
+        "location": "Pallazo (208)",
+        "notes": "MAPPING: (Sisa Pallazo: 208)",
         "status": "ready",
-        "location": "Gudang Stok Lama",
-        "notes": "Include Windows 10 Pro 64bit + Keyboard & Mouse USB + Garansi 6 Bulan",
-        "updatedAt": "2026-09-12T13:15:00.000Z"
+        "updatedAt": "2026-09-15T01:59:50.437Z"
     },
     {
         "id": "dell-other-02",

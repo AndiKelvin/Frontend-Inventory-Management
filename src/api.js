@@ -14,7 +14,7 @@ const StockAPI = {
         this.isServerAvailable = true;
         console.log("[TechStock API] Terhubung ke Backend Server lokal.");
       }
-    } catch (e) {
+    } catch {
       this.isServerAvailable = false;
       console.log("[TechStock API] Backend lokal tidak aktif, menggunakan mode LocalStorage.");
     }
@@ -190,6 +190,64 @@ const StockAPI = {
     document.body.removeChild(a);
     window.URL.revokeObjectURL(url);
     return filename;
+  },
+
+  async getMovements(filters = {}) {
+    if (this.isServerAvailable) {
+      try {
+        const query = new URLSearchParams();
+        if (filters.search) query.append('search', filters.search);
+        if (filters.type && filters.type !== 'all') query.append('type', filters.type);
+        if (filters.itemId) query.append('itemId', filters.itemId);
+        if (filters.limit) query.append('limit', filters.limit);
+        const res = await fetch(`/api/stock/movements?${query.toString()}`);
+        if (res.ok) return await res.json();
+      } catch (err) {
+        console.warn("Gagal fetch riwayat mutasi dari backend, fallback ke LocalStorage", err);
+      }
+    }
+    const local = localStorage.getItem("techstock_stock_movements");
+    let movements = local ? JSON.parse(local) : [];
+    if (filters.type && filters.type !== 'all') {
+      movements = movements.filter(m => (m.type || '').toUpperCase() === filters.type.toUpperCase());
+    }
+    if (filters.search) {
+      const q = filters.search.toLowerCase();
+      movements = movements.filter(m =>
+        (m.itemName || '').toLowerCase().includes(q) ||
+        (m.partNumber || '').toLowerCase().includes(q) ||
+        (m.actor || '').toLowerCase().includes(q) ||
+        (m.reference || '').toLowerCase().includes(q) ||
+        (m.notes || '').toLowerCase().includes(q)
+      );
+    }
+    return movements;
+  },
+
+  async recordMovement(data) {
+    if (this.isServerAvailable) {
+      try {
+        const res = await fetch("/api/stock/movements", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data)
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {
+        console.warn("Gagal simpan mutasi ke backend, fallback ke LocalStorage", err);
+      }
+    }
+    const local = localStorage.getItem("techstock_stock_movements");
+    const movements = local ? JSON.parse(local) : [];
+    const newEntry = {
+      id: `mov-${Date.now()}-${Math.random().toString(36).substring(2, 7)}`,
+      timestamp: new Date().toISOString(),
+      ...data,
+      createdAt: new Date().toISOString()
+    };
+    movements.unshift(newEntry);
+    localStorage.setItem("techstock_stock_movements", JSON.stringify(movements));
+    return newEntry;
   }
 };
 

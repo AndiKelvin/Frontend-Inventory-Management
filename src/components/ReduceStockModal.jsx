@@ -1,10 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { X, Save, MapPin, Monitor, Wrench, AlertTriangle, ArrowRight, Check, UserCheck, PlusCircle } from 'lucide-react';
+import { getBookedQty } from '../utils/stockUtils';
 
 /**
  * Helper untuk mengurai akumulasi stok per lokasi/kategori dari data item
  */
-export const parseLocationBreakdown = (item) => {
+const parseLocationBreakdown = (item) => {
   const isSpecial = (item?.partNumber || '').trim().toUpperCase() === '365K5PA';
   const locStr = item?.location || '';
   const totalQty = parseInt(item?.qty, 10) || 0;
@@ -71,6 +72,12 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
   const [serviceQty, setServiceQty] = useState(1);
   const [doaQty, setDoaQty] = useState(1);
 
+  // Input audit mutasi
+  const [actorInput, setActorInput] = useState('');
+  const [refInput, setRefInput] = useState('');
+  const [notesInput, setNotesInput] = useState('');
+  const [isBookingFulfillment, setIsBookingFulfillment] = useState(false);
+
   useEffect(() => {
     if (item) {
       setActiveCategory('lokasi');
@@ -78,6 +85,10 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
       setDemoQty(1);
       setServiceQty(1);
       setDoaQty(1);
+      setActorInput('');
+      setRefInput('');
+      setNotesInput('');
+      setIsBookingFulfillment(false);
 
       const breakdownData = parseLocationBreakdown(item);
 
@@ -111,6 +122,7 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
 
   const currentQty = parseInt(item.qty, 10) || 0;
   const breakdown = parseLocationBreakdown(item);
+  const existingBooked = getBookedQty(item);
 
   // Daftar gudang yang tersedia untuk pilihan Lokasi
   const availableWarehouses = [
@@ -304,15 +316,28 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
     e.preventDefault();
     if ((!isAdd && currentQty <= 0) || isSelectedLocationEmpty) return;
 
+    let finalMappingText = syncedMappingPreview;
+    if (isBookingFulfillment && !isAdd) {
+      finalMappingText = `MAPPING: Selesai Ambil ${currentAdjustAmount} unit (${actorInput.trim() || 'Sales'}) - Sisa Stok: ${resultingQty}`;
+    }
+
     onConfirm({
       id: item.id,
       amount: currentAdjustAmount,
       reduceAmount: currentAdjustAmount, // kompatibilitas ke belakang
       newQty: resultingQty,
       location: syncedLocationPreview,
-      notes: syncedMappingPreview,
+      notes: finalMappingText,
       itemName: item.name,
-      mode
+      brand: item.brand,
+      partNumber: item.partNumber,
+      mode,
+      actor: actorInput.trim() || (isAdd ? 'Admin Gudang' : 'Sales / Penerima'),
+      reference: refInput.trim() || '-',
+      movementNotes: notesInput.trim() || (isAdd ? `Penambahan ke ${selectedLocation}` : (isBookingFulfillment ? `Pengambilan booking ${actorInput || ''}` : `Pengambilan dari ${selectedLocation}`)),
+      locationTarget: selectedLocation,
+      category: activeCategory,
+      isBookingFulfillment
     });
   };
 
@@ -838,6 +863,107 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
                   </div>
                 </div>
               )}
+            </div>
+          </div>
+
+          {/* Form Audit: Sales/Penerima, No PO, dan Opsi Booking */}
+          <div style={{
+            background: '#F8FAFC',
+            border: '1px solid #E2E8F0',
+            borderRadius: '8px',
+            padding: '0.75rem 0.85rem',
+            marginBottom: '0.85rem'
+          }}>
+            <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1E293B', marginBottom: '0.55rem', display: 'flex', alignItems: 'center', gap: '0.35rem' }}>
+              <UserCheck size={15} color="#2563EB" />
+              <span>Detail Riwayat Mutasi & Serah Terima:</span>
+            </div>
+
+            {/* Opsi jika ada unit yang sedang dibooking / mapping */}
+            {!isAdd && existingBooked > 0 && (
+              <div style={{
+                background: '#FEF3C7',
+                border: '1px solid #FDE68A',
+                borderRadius: '6px',
+                padding: '0.45rem 0.65rem',
+                marginBottom: '0.65rem',
+                fontSize: '0.75rem',
+                color: '#92400E'
+              }}>
+                <div style={{ fontWeight: 700, marginBottom: '2px' }}>
+                  🏷️ Unit ini memiliki {existingBooked} unit di-Booking / Mapping
+                </div>
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.25rem', cursor: 'pointer', fontWeight: 600 }}>
+                  <input
+                    type="checkbox"
+                    checked={isBookingFulfillment}
+                    onChange={(e) => setIsBookingFulfillment(e.target.checked)}
+                  />
+                  <span>Pengambilan ini untuk menyelesaikan unit yang sedang di-booking</span>
+                </label>
+              </div>
+            )}
+
+            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem' }}>
+                  {isAdd ? 'Admin / Penginput:' : 'Sales / Penerima Barang:'}
+                </label>
+                <input
+                  type="text"
+                  placeholder={isAdd ? 'Admin Gudang' : 'Contoh: Kak Puput, Mas Fungherry'}
+                  value={actorInput}
+                  onChange={(e) => setActorInput(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.38rem 0.55rem',
+                    fontSize: '0.8rem',
+                    borderRadius: '5px',
+                    border: '1px solid #CBD5E1',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+
+              <div>
+                <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem' }}>
+                  No. PO / Surat Jalan / Ref:
+                </label>
+                <input
+                  type="text"
+                  placeholder="Contoh: PO-MRDIY-01 / DO-09"
+                  value={refInput}
+                  onChange={(e) => setRefInput(e.target.value)}
+                  style={{
+                    width: '100%',
+                    padding: '0.38rem 0.55rem',
+                    fontSize: '0.8rem',
+                    borderRadius: '5px',
+                    border: '1px solid #CBD5E1',
+                    outline: 'none'
+                  }}
+                />
+              </div>
+            </div>
+
+            <div style={{ marginTop: '0.45rem' }}>
+              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem' }}>
+                Catatan Alasan Mutasi (Opsional):
+              </label>
+              <input
+                type="text"
+                placeholder={isAdd ? 'Keterangan penambahan barang...' : 'Keterangan pengambilan / customer...'}
+                value={notesInput}
+                onChange={(e) => setNotesInput(e.target.value)}
+                style={{
+                  width: '100%',
+                  padding: '0.38rem 0.55rem',
+                  fontSize: '0.8rem',
+                  borderRadius: '5px',
+                  border: '1px solid #CBD5E1',
+                  outline: 'none'
+                }}
+              />
             </div>
           </div>
 

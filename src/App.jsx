@@ -1,11 +1,14 @@
 import React, { useState, useEffect } from 'react';
-import { Boxes, LayoutTemplate, Upload, Download, Send, PlusCircle, Search, Layers, Laptop, Archive, AlertTriangle, XCircle, RotateCcw, Check, FileSpreadsheet } from 'lucide-react';
+import { PlusCircle, Search, Layers, Laptop, Archive, AlertTriangle, XCircle, RotateCcw, Check, FileSpreadsheet, History, Upload, BookmarkCheck } from 'lucide-react';
 import StockAPI from './api';
 import Dashboard from './components/Dashboard';
 import StockList from './components/StockList';
 import StockForm from './components/StockForm';
 import ReduceStockModal from './components/ReduceStockModal';
 import ExportBrandModal from './components/ExportBrandModal';
+import MovementLogsModal from './components/MovementLogsModal';
+import ImportExcelModal from './components/ImportExcelModal';
+import { getBookedQty } from './utils/stockUtils';
 import {
   exportSmbHpJpg,
   exportSmbDellJpg,
@@ -24,6 +27,10 @@ function App() {
   const [editingItem, setEditingItem] = useState(null);
   const [stockModalItem, setStockModalItem] = useState(null);
   const [stockModalMode, setStockModalMode] = useState('reduce'); // 'reduce' | 'add'
+
+  // Modal Riwayat Mutasi & Import Excel
+  const [showMovementLogs, setShowMovementLogs] = useState(false);
+  const [showImportModal, setShowImportModal] = useState(false);
 
   // Modal pemilihan brand untuk Export SMB & Export Distri
   const [exportModalType, setExportModalType] = useState(null); // 'SMB' | 'Distri' | null
@@ -143,6 +150,8 @@ function App() {
       result = result.filter(u => u.brand === "HP" && u.qty > 0);
     } else if (activeBrand === "DELL LAINNYA") {
       result = result.filter(u => u.brand === "DELL LAINNYA" && u.qty > 0);
+    } else if (activeBrand === "booking") {
+      result = result.filter(u => getBookedQty(u) > 0 && u.qty > 0);
     } else if (activeBrand === "low") {
       result = result.filter(u => u.qty > 0 && u.qty <= 2);
     } else if (activeBrand === "sold") {
@@ -205,7 +214,21 @@ function App() {
     setStockModalItem(item);
   };
 
-  const handleConfirmStockAdjust = async ({ id, amount, reduceAmount, newQty, location, notes, itemName, mode }) => {
+  const handleConfirmStockAdjust = async ({
+    id,
+    amount,
+    reduceAmount,
+    newQty,
+    location,
+    notes,
+    itemName,
+    mode,
+    actor,
+    reference,
+    movementNotes,
+    locationTarget,
+    isBookingFulfillment
+  }) => {
     const itemIdx = items.findIndex(u => u.id === id);
     if (itemIdx < 0) return;
 
@@ -229,8 +252,41 @@ function App() {
 
     setItems(newItems);
     setStockModalItem(null);
-    await StockAPI.saveUnit(updatedUnit);
+
+    // Kirim data unit dan rekaman mutasi stok ke server
+    const movementType = isAdd ? 'IN' : (isBookingFulfillment ? 'BOOKING' : 'OUT');
+    await StockAPI.saveUnit({
+      ...updatedUnit,
+      movement: {
+        type: movementType,
+        amount: adjustAmount,
+        previousQty: item.qty,
+        location: locationTarget || location || item.location,
+        actor: actor || (isAdd ? 'Admin Gudang' : 'Sales / Penerima'),
+        reference: reference || '-',
+        notes: movementNotes || (isAdd ? `Penambahan ${adjustAmount} unit` : `Pengurangan ${adjustAmount} unit`)
+      }
+    });
+
     showToast(`✓ ${isAdd ? 'Penambahan' : 'Pengurangan'} stok "${itemName}" berhasil disimpan (${isAdd ? 'Total' : 'Sisa'}: ${newQty} unit)`);
+  };
+
+  const handleImportSuccess = async (newItems, count, mode) => {
+    setItems(newItems);
+    await StockAPI.saveAll(newItems);
+    await StockAPI.recordMovement({
+      itemId: 'import-excel',
+      partNumber: 'EXCEL-IMPORT',
+      itemName: `Import Rekap Excel (${count} Unit)`,
+      brand: 'ALL',
+      type: 'IN',
+      amount: count,
+      location: 'Gudang Utama',
+      actor: 'Admin',
+      reference: mode === 'replace' ? 'REPLACE-ALL' : 'MERGE',
+      notes: `Import data ${count} unit dari file Excel via Web`
+    });
+    showToast(`✓ Berhasil mengimpor ${count} unit barang dari Excel (${mode === 'replace' ? 'Gantikan Semua' : 'Update/Merge'})`);
   };
 
   const handleSaveUnit = async (unitObj) => {
@@ -294,6 +350,7 @@ function App() {
     if (type === 'DELL') return items.filter(u => u.brand === 'DELL' && u.qty > 0).length;
     if (type === 'HP') return items.filter(u => u.brand === 'HP' && u.qty > 0).length;
     if (type === 'DELL LAINNYA') return items.filter(u => u.brand === 'DELL LAINNYA' && u.qty > 0).length;
+    if (type === 'booking') return items.filter(u => getBookedQty(u) > 0 && u.qty > 0).length;
     if (type === 'low') return items.filter(u => u.qty > 0 && u.qty <= 2).length;
     if (type === 'sold') return items.filter(u => u.qty === 0).length;
     return 0;
@@ -314,6 +371,7 @@ function App() {
           </div>
           <div>
             <h1 className="brand-title">Daftar Stok Berjalan</h1>
+            <p className="brand-subtitle">Concordia Group</p>
           </div>
         </div>
         <div className="header-actions">
@@ -327,6 +385,26 @@ function App() {
             <RotateCcw size={15} />
             <span>Undo</span>
             {history.length > 0 && <span className="undo-badge">{history.length}</span>}
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowMovementLogs(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #CBD5E1' }}
+            title="Lihat riwayat keluar-masuk barang, serah terima sales, dan audit no PO"
+          >
+            <History size={16} color="#2563EB" />
+            <span>Riwayat Mutasi</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowImportModal(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #CBD5E1' }}
+            title="Import data rekap stok dari file Excel / CSV"
+          >
+            <Upload size={16} color="#059669" />
+            <span>Import Excel</span>
           </button>
           <button
             type="button"
@@ -380,6 +458,11 @@ function App() {
           </button>
           <button className={`tab-btn ${activeBrand === 'DELL LAINNYA' ? 'active' : ''}`} onClick={() => setActiveBrand('DELL LAINNYA')}>
             <Archive size={14} /><span>Dell Lainnya</span><span className="tab-badge">{getTabCount('DELL LAINNYA')}</span>
+          </button>
+          <button className={`tab-btn ${activeBrand === 'booking' ? 'active' : ''}`} onClick={() => setActiveBrand('booking')}>
+            <BookmarkCheck size={14} color={activeBrand === 'booking' ? '#D97706' : '#94A3B8'} />
+            <span>Di-Booking (Mapping)</span>
+            <span className="tab-badge" style={{ background: '#FEF3C7', color: '#B45309' }}>{getTabCount('booking')}</span>
           </button>
           <button className={`tab-btn ${activeBrand === 'low' ? 'active' : ''}`} onClick={() => setActiveBrand('low')}>
             <AlertTriangle size={14} /><span>Stok Kritis</span><span className="tab-badge">{getTabCount('low')}</span>
@@ -443,6 +526,18 @@ function App() {
         onSelectBrand={handleSelectExportBrand}
         onSelectExcelBrand={handleSelectExcelBrand}
         isExporting={isExporting}
+      />
+
+      <MovementLogsModal
+        show={showMovementLogs}
+        onClose={() => setShowMovementLogs(false)}
+      />
+
+      <ImportExcelModal
+        show={showImportModal}
+        onClose={() => setShowImportModal(false)}
+        currentItems={items}
+        onImportSuccess={handleImportSuccess}
       />
 
       {toastMessage && (

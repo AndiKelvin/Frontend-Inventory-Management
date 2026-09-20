@@ -1,5 +1,5 @@
 import React from 'react';
-import { X, Image, FileSpreadsheet, ArrowRight, Building2, Download } from 'lucide-react';
+import { X, Image, ArrowRight, Building2, Download } from 'lucide-react';
 
 const ExportBrandModal = ({
   show,
