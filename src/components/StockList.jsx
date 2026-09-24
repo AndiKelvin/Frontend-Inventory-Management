@@ -1,6 +1,6 @@
 import React from 'react';
-import { MapPin, UserCheck, Trash2, Edit } from 'lucide-react';
-import { getBookedQty, getAvailableQty } from '../utils/stockUtils';
+import { MapPin, UserCheck, Trash2, Edit, Info } from 'lucide-react';
+import { getBookedQty, getAvailableQty, parseNotesAndMapping } from '../utils/stockUtils';
 
 const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDelete, onEdit }) => {
   const formatCategory = (cat) => {
@@ -47,7 +47,7 @@ const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDele
               <th style={{width: '110px'}}>Kategori</th>
               <th style={{width: '220px'}}>Spesifikasi Ringkas</th>
               <th style={{width: '145px', textAlign: 'center'}}>Stok Berjalan</th>
-              <th>Lokasi & Mapping</th>
+              <th style={{minWidth: '180px'}}>Lokasi, Mapping & Keterangan</th>
               <th style={{width: '90px', textAlign: 'center'}}>Aksi</th>
             </tr>
           </thead>
@@ -58,6 +58,7 @@ const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDele
               const qtyClass = isSold ? 'zero' : (isLow ? 'low' : '');
               const booked = getBookedQty(item);
               const available = getAvailableQty(item);
+              const { mappings: itemMappings, keterangan: itemKeterangan } = parseNotesAndMapping(item.notes || '');
 
               return (
                 <tr key={item.id} className={isSold ? 'row-sold' : ''}>
@@ -162,9 +163,53 @@ const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDele
                   </td>
                   <td>
                     <div className="loc-map-cell">
-                      <div className="meta-line meta-loc"><MapPin size={13} /><span>{item.location || '-'}</span></div>
-                      {item.notes && (
-                        <div className="meta-line meta-map"><UserCheck size={13} /><span>{item.notes}</span></div>
+                      <div className="meta-line meta-loc" title="Lokasi Gudang / Rak">
+                        <MapPin size={13} />
+                        <span>{item.location || '-'}</span>
+                      </div>
+
+                      {/* Mapping Booking Sales: HANYA TAMPIL JIKA BENAR-BENAR ADA BOOKING DARI SALES */}
+                      {itemMappings && itemMappings.length > 0 && (
+                        <div
+                          className="meta-line meta-map"
+                          title="Alokasi Booking / Mapping Sales"
+                          style={{
+                            color: '#B45309',
+                            background: '#FEF3C7',
+                            padding: '2px 6px',
+                            borderRadius: '4px',
+                            display: 'inline-flex',
+                            alignItems: 'center',
+                            gap: '4px',
+                            width: 'fit-content',
+                            marginTop: '2px',
+                            border: '1px solid #FDE68A'
+                          }}
+                        >
+                          <UserCheck size={12} color="#D97706" />
+                          <span style={{ fontWeight: 600 }}>
+                            Mapping: {itemMappings.map(m => `${m.sales}${m.note ? ` - ${m.note}` : ''} (${m.qty})`).join(', ')}
+                          </span>
+                        </div>
+                      )}
+
+                      {/* Keterangan Tambahan / Spesifikasi Produk (Bukan Mapping) */}
+                      {itemKeterangan && (
+                        <div
+                          className="meta-line meta-note"
+                          title="Keterangan Produk"
+                          style={{
+                            color: '#475569',
+                            fontSize: '0.73rem',
+                            display: 'flex',
+                            alignItems: 'flex-start',
+                            gap: '4px',
+                            marginTop: '2px'
+                          }}
+                        >
+                          <Info size={12} color="#64748B" style={{ marginTop: '2px', flexShrink: 0 }} />
+                          <span>{itemKeterangan}</span>
+                        </div>
                       )}
                     </div>
                   </td>

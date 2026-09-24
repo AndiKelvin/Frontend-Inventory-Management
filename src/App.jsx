@@ -391,10 +391,10 @@ function App() {
             className="btn btn-secondary"
             onClick={() => setShowMovementLogs(true)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #CBD5E1' }}
-            title="Lihat riwayat keluar-masuk barang, serah terima sales, dan audit no PO"
+            title="Lihat histori Job Log (keluar-masuk barang, serah terima sales, dan audit no PO)"
           >
             <History size={16} color="#2563EB" />
-            <span>Riwayat Mutasi</span>
+            <span>Job Log</span>
           </button>
           <button
             type="button"
@@ -531,6 +531,7 @@ function App() {
       <MovementLogsModal
         show={showMovementLogs}
         onClose={() => setShowMovementLogs(false)}
+        items={items}
       />
 
       <ImportExcelModal

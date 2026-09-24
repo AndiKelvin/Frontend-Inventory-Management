@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { X, Save, MapPin, Monitor, Wrench, AlertTriangle, ArrowRight, Check, UserCheck, PlusCircle } from 'lucide-react';
-import { getBookedQty } from '../utils/stockUtils';
+import { X, Save, MapPin, Monitor, Wrench, AlertTriangle, ArrowRight, Check, UserCheck, PlusCircle, Info } from 'lucide-react';
+import { getBookedQty, parseNotesAndMapping, formatNotesAndMapping } from '../utils/stockUtils';
 
 /**
  * Helper untuk mengurai akumulasi stok per lokasi/kategori dari data item
@@ -77,6 +77,7 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
   const [refInput, setRefInput] = useState('');
   const [notesInput, setNotesInput] = useState('');
   const [isBookingFulfillment, setIsBookingFulfillment] = useState(false);
+  const [selectedClosingSalesId, setSelectedClosingSalesId] = useState('');
 
   useEffect(() => {
     if (item) {
@@ -89,6 +90,13 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
       setRefInput('');
       setNotesInput('');
       setIsBookingFulfillment(false);
+
+      const { mappings: parsedMaps } = parseNotesAndMapping(item.notes || '');
+      if (parsedMaps.length > 0) {
+        setSelectedClosingSalesId(parsedMaps[0].id);
+      } else {
+        setSelectedClosingSalesId('');
+      }
 
       const breakdownData = parseLocationBreakdown(item);
 
@@ -122,7 +130,10 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
 
   const currentQty = parseInt(item.qty, 10) || 0;
   const breakdown = parseLocationBreakdown(item);
-  const existingBooked = getBookedQty(item);
+  const { mappings: itemMappings, keterangan: itemKeterangan } = parseNotesAndMapping(item.notes || '');
+  const existingBooked = itemMappings.reduce((sum, m) => sum + (parseInt(m.qty, 10) || 0), 0);
+  const readyAvailable = Math.max(0, currentQty - existingBooked);
+  const activeClosingSales = itemMappings.find(m => m.id === selectedClosingSalesId) || itemMappings[0];
 
   // Daftar gudang yang tersedia untuk pilihan Lokasi
   const availableWarehouses = [
@@ -139,6 +150,9 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
   const getMaxAvailableForCategory = () => {
     if (isAdd) {
       return 9999; // Penambahan tidak dibatasi oleh stok saat ini
+    }
+    if (isBookingFulfillment && activeClosingSales) {
+      return Math.max(1, activeClosingSales.qty);
     }
     if (activeCategory === 'demo') {
       return breakdown.demo > 0 ? breakdown.demo : (breakdown.pallazo > 0 ? breakdown.pallazo : currentQty);
@@ -172,10 +186,33 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
 
   // Hitung teks Lokasi dan Mapping secara dinamis dan tersinkronisasi untuk SEMUA BARANG
   const getSyncedOutputs = () => {
+    // Tentukan catatan mapping yang disinkronkan
+    let mappingText = '';
+
+    if (isAdd) {
+      // Penambahan stok tidak mengubah alokasi mapping
+      mappingText = formatNotesAndMapping(itemMappings, itemKeterangan);
+    } else {
+      // Pengurangan stok
+      if (isBookingFulfillment && activeClosingSales) {
+        // Closing mappingan: kurangi kuantitas mapping sales yang dipilih
+        const updatedMappings = itemMappings.map(m => {
+          if (m.id === activeClosingSales.id) {
+            return { ...m, qty: Math.max(0, m.qty - currentAdjustAmount) };
+          }
+          return m;
+        }).filter(m => m.qty > 0);
+        mappingText = formatNotesAndMapping(updatedMappings, itemKeterangan);
+      } else {
+        // Penjualan barang ready: mapping TETAP UTUH dan TIDAK dilabeli mapping baru
+        mappingText = formatNotesAndMapping(itemMappings, itemKeterangan);
+      }
+    }
+
     if (!isAdd && resultingQty === 0) {
       return {
         locationText: `Habis (0) - Terakhir di ${selectedLocation}`,
-        mappingText: `MAPPING: Take Out ${currentAdjustAmount} unit dari ${selectedLocation} (Stok Habis)`
+        mappingText
       };
     }
 
@@ -184,38 +221,24 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
       let remPallazo = breakdown.pallazo;
       let remKlaim = breakdown.klaimDoa;
       let remService = breakdown.service;
-      let mappingText = '';
 
       if (isAdd) {
         if (activeCategory === 'lokasi') {
-          if (selectedLocation === 'Pallazo') {
-            remPallazo += currentAdjustAmount;
-            mappingText = `MAPPING: Masuk ${currentAdjustAmount} unit ke Pallazo (Total Pallazo: ${remPallazo})`;
-          } else {
-            mappingText = `MAPPING: Masuk ${currentAdjustAmount} unit ke ${selectedLocation} (Total: ${currentAdjustAmount})`;
-          }
-        } else if (activeCategory === 'demo') {
-          mappingText = `DEMO: Masuk ${currentAdjustAmount} unit ke Display Toko`;
+          if (selectedLocation === 'Pallazo') remPallazo += currentAdjustAmount;
         } else if (activeCategory === 'service') {
           remService += currentAdjustAmount;
-          mappingText = `SERVICES: Masuk ${currentAdjustAmount} unit ke Service (Total Service: ${remService})`;
         } else if (activeCategory === 'klaim_doa') {
           remKlaim += currentAdjustAmount;
-          mappingText = `KLAIM DOA: Masuk ${currentAdjustAmount} unit klaim DOA (Total: ${remKlaim})`;
         }
       } else {
         if (activeCategory === 'lokasi') {
           remPallazo = Math.max(0, remPallazo - currentAdjustAmount);
-          mappingText = `MAPPING: Take Out ${currentAdjustAmount} unit dari Pallazo (Sisa Pallazo: ${remPallazo})`;
         } else if (activeCategory === 'demo') {
           remPallazo = Math.max(0, remPallazo - currentAdjustAmount);
-          mappingText = `DEMO: ${currentAdjustAmount} unit dialokasikan ke Display Toko (Sisa Pallazo: ${remPallazo})`;
         } else if (activeCategory === 'service') {
           remService = Math.max(0, remService - currentAdjustAmount);
-          mappingText = `SERVICES: ${currentAdjustAmount} unit keluar service (Sisa Service: ${remService})`;
         } else if (activeCategory === 'klaim_doa') {
           remKlaim = Math.max(0, remKlaim - currentAdjustAmount);
-          mappingText = `KLAIM DOA: ${currentAdjustAmount} unit diproses ke HP (Sisa Klaim DOA: ${remKlaim})`;
         }
       }
 
@@ -274,39 +297,19 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
         return full.replace(`(${currentCount})`, `(${newCount})`);
       });
 
-      let updatedMapping = '';
-      if (isAdd) {
-        if (activeCategory === 'demo') {
-          updatedMapping = `DEMO: Masuk ${currentAdjustAmount} unit ke Display Toko (Total: ${newCount})`;
-        } else if (activeCategory === 'service') {
-          updatedMapping = `SERVICES: Masuk ${currentAdjustAmount} unit ke Service (Total Service: ${newCount})`;
-        } else {
-          updatedMapping = `MAPPING: Masuk ${currentAdjustAmount} unit ke ${targetLabel} (Total ${targetLabel}: ${newCount})`;
-        }
-      } else {
-        if (activeCategory === 'demo') {
-          updatedMapping = `DEMO: ${currentAdjustAmount} unit dialokasikan ke Display Toko (Sisa: ${newCount})`;
-        } else if (activeCategory === 'service') {
-          updatedMapping = `SERVICES: ${currentAdjustAmount} unit keluar service (Sisa Service: ${newCount})`;
-        } else {
-          updatedMapping = `MAPPING: Take Out ${currentAdjustAmount} unit dari ${targetLabel} (Sisa ${targetLabel}: ${newCount})`;
-        }
-      }
-
-      return { locationText: updatedLocation, mappingText: updatedMapping };
+      return { locationText: updatedLocation, mappingText };
     }
 
     // Jika lokasi belum ada di string saat penambahan
     if (isAdd) {
       const updatedLocation = cleanLoc ? `${cleanLoc}, ${targetLabel} (${currentAdjustAmount})` : `${targetLabel} (${currentAdjustAmount})`;
-      const updatedMapping = `MAPPING: Masuk ${currentAdjustAmount} unit ke ${targetLabel} (Total: ${currentAdjustAmount})`;
-      return { locationText: updatedLocation, mappingText: updatedMapping };
+      return { locationText: updatedLocation, mappingText };
     }
 
     // Fallback jika tidak ada segmen kurung dalam lokasi asli saat pengurangan
     return {
       locationText: `${targetLabel} (${resultingQty})`,
-      mappingText: `MAPPING: Take Out ${currentAdjustAmount} unit dari ${targetLabel} (Sisa: ${resultingQty})`
+      mappingText
     };
   };
 
@@ -316,25 +319,20 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
     e.preventDefault();
     if ((!isAdd && currentQty <= 0) || isSelectedLocationEmpty) return;
 
-    let finalMappingText = syncedMappingPreview;
-    if (isBookingFulfillment && !isAdd) {
-      finalMappingText = `MAPPING: Selesai Ambil ${currentAdjustAmount} unit (${actorInput.trim() || 'Sales'}) - Sisa Stok: ${resultingQty}`;
-    }
-
     onConfirm({
       id: item.id,
       amount: currentAdjustAmount,
       reduceAmount: currentAdjustAmount, // kompatibilitas ke belakang
       newQty: resultingQty,
       location: syncedLocationPreview,
-      notes: finalMappingText,
+      notes: syncedMappingPreview,
       itemName: item.name,
       brand: item.brand,
       partNumber: item.partNumber,
       mode,
-      actor: actorInput.trim() || (isAdd ? 'Admin Gudang' : 'Sales / Penerima'),
+      actor: actorInput.trim() || (isAdd ? 'Admin Gudang' : (isBookingFulfillment ? (activeClosingSales?.sales || 'Sales') : 'Sales / Penerima')),
       reference: refInput.trim() || '-',
-      movementNotes: notesInput.trim() || (isAdd ? `Penambahan ke ${selectedLocation}` : (isBookingFulfillment ? `Pengambilan booking ${actorInput || ''}` : `Pengambilan dari ${selectedLocation}`)),
+      movementNotes: notesInput.trim() || (isAdd ? `Penambahan ke ${selectedLocation}` : (isBookingFulfillment ? `Closing mapping ${activeClosingSales?.sales || 'Sales'} (${currentAdjustAmount} unit)` : `Pengeluaran ready stock dari ${selectedLocation}`)),
       locationTarget: selectedLocation,
       category: activeCategory,
       isBookingFulfillment
@@ -880,34 +878,86 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
             </div>
 
             {/* Opsi jika ada unit yang sedang dibooking / mapping */}
-            {!isAdd && existingBooked > 0 && (
+            {!isAdd && itemMappings.length > 0 && (
               <div style={{
-                background: '#FEF3C7',
-                border: '1px solid #FDE68A',
+                background: isBookingFulfillment ? '#EFF6FF' : '#FEF3C7',
+                border: isBookingFulfillment ? '1px solid #BFDBFE' : '1px solid #FDE68A',
                 borderRadius: '6px',
-                padding: '0.45rem 0.65rem',
-                marginBottom: '0.65rem',
+                padding: '0.55rem 0.75rem',
+                marginBottom: '0.75rem',
                 fontSize: '0.75rem',
-                color: '#92400E'
+                color: isBookingFulfillment ? '#1E40AF' : '#92400E',
+                transition: 'all 0.2s ease'
               }}>
-                <div style={{ fontWeight: 700, marginBottom: '2px' }}>
-                  🏷️ Unit ini memiliki {existingBooked} unit di-Booking / Mapping
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '3px' }}>
+                  <div style={{ fontWeight: 700 }}>
+                    🏷️ Terdata {existingBooked} unit di-Mapping ({itemMappings.map(m => `${m.sales} [${m.qty}]`).join(', ')})
+                  </div>
+                  <span style={{ fontSize: '0.71rem', background: '#FFFFFF', padding: '1px 6px', borderRadius: '4px', fontWeight: 600 }}>
+                    Ready Bebas: {readyAvailable} unit
+                  </span>
                 </div>
-                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.25rem', cursor: 'pointer', fontWeight: 600 }}>
+
+                <label style={{ display: 'flex', alignItems: 'center', gap: '0.45rem', marginTop: '0.35rem', cursor: 'pointer', fontWeight: 700 }}>
                   <input
                     type="checkbox"
                     checked={isBookingFulfillment}
-                    onChange={(e) => setIsBookingFulfillment(e.target.checked)}
+                    onChange={(e) => {
+                      const checked = e.target.checked;
+                      setIsBookingFulfillment(checked);
+                      if (checked && activeClosingSales) {
+                        if (!actorInput) setActorInput(activeClosingSales.sales);
+                        if (!notesInput) setNotesInput(`Closing mapping ${activeClosingSales.sales}`);
+                      }
+                    }}
                   />
-                  <span>Pengambilan ini untuk menyelesaikan unit yang sedang di-booking</span>
+                  <span>Pengambilan ini untuk CLOSING barang mappingan (Deal Sales Closing)</span>
                 </label>
+
+                {!isBookingFulfillment ? (
+                  <div style={{ fontSize: '0.71rem', color: '#78350F', marginTop: '4px' }}>
+                    ℹ️ <strong>Barang Ready yang Dikeluarkan:</strong> Alokasi mapping sales tetap utuh dan TIDAK akan berkurang.
+                  </div>
+                ) : (
+                  <div style={{ marginTop: '0.5rem', paddingTop: '0.45rem', borderTop: '1px dashed #BFDBFE' }}>
+                    {itemMappings.length > 1 && (
+                      <div style={{ marginBottom: '0.4rem' }}>
+                        <label style={{ display: 'block', fontSize: '0.71rem', fontWeight: 600, color: '#1E40AF', marginBottom: '2px' }}>
+                          Pilih Sales yang Closing:
+                        </label>
+                        <select
+                          className="form-control"
+                          style={{ padding: '3px 7px', fontSize: '0.75rem', width: '100%' }}
+                          value={selectedClosingSalesId}
+                          onChange={(e) => {
+                            setSelectedClosingSalesId(e.target.value);
+                            const picked = itemMappings.find(m => m.id === e.target.value);
+                            if (picked) {
+                              setActorInput(picked.sales);
+                              setNotesInput(`Closing mapping ${picked.sales}`);
+                            }
+                          }}
+                        >
+                          {itemMappings.map(m => (
+                            <option key={m.id} value={m.id}>
+                              {m.sales} ({m.qty} unit){m.note ? ` - ${m.note}` : ''}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+                    <div style={{ fontSize: '0.71rem', color: '#1E40AF' }}>
+                      ✓ Mapping <strong>{activeClosingSales?.sales || 'Sales'}</strong> ({activeClosingSales?.qty || 0} unit) akan dikurangi <strong>{currentAdjustAmount} unit</strong> saat disimpan.
+                    </div>
+                  </div>
+                )}
               </div>
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
               <div>
                 <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem' }}>
-                  {isAdd ? 'Admin / Penginput:' : 'Sales / Penerima Barang:'}
+                  {isAdd ? 'Admin / Penginput:' : 'Sales:'}
                 </label>
                 <input
                   type="text"
@@ -948,11 +998,11 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
 
             <div style={{ marginTop: '0.45rem' }}>
               <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem' }}>
-                Catatan Alasan Mutasi (Opsional):
+                {isAdd ? 'Catatan Tambahan (Opsional):' : 'Customer:'}
               </label>
               <input
                 type="text"
-                placeholder={isAdd ? 'Keterangan penambahan barang...' : 'Keterangan pengambilan / customer...'}
+                placeholder={isAdd ? 'Keterangan penambahan barang...' : 'Contoh: PT ABC, Bapak Hendra, dsb.'}
                 value={notesInput}
                 onChange={(e) => setNotesInput(e.target.value)}
                 style={{
@@ -999,12 +1049,36 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
                 </div>
               </div>
               <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.45rem', color: '#1E293B' }}>
-                <UserCheck size={14} color="#16A34A" style={{ marginTop: '2px', flexShrink: 0 }} />
+                <UserCheck size={14} color={existingBooked > 0 ? '#D97706' : '#64748B'} style={{ marginTop: '2px', flexShrink: 0 }} />
                 <div>
-                  <strong style={{ color: '#475569', fontSize: '0.74rem' }}>MAPPING: </strong>
-                  <span style={{ fontWeight: 600 }}>{syncedMappingPreview}</span>
+                  <strong style={{ color: '#475569', fontSize: '0.74rem' }}>BOOKING / MAPPING SALES: </strong>
+                  {existingBooked > 0 ? (
+                    isBookingFulfillment ? (
+                      <span style={{ fontWeight: 600, color: '#2563EB' }}>
+                        Mapping {activeClosingSales?.sales} berkurang {currentAdjustAmount} unit (Closing Deal)
+                      </span>
+                    ) : (
+                      <span style={{ fontWeight: 600, color: '#B45309' }}>
+                        {itemMappings.map(m => `${m.sales} (${m.qty})`).join(', ')} <em style={{ fontSize: '0.72rem', color: '#64748B', fontWeight: 'normal' }}>(Tetap utuh — yang keluar barang ready, bukan mapping)</em>
+                      </span>
+                    )
+                  ) : (
+                    <span style={{ color: '#64748B', fontStyle: 'italic' }}>
+                      Tidak ada booking sales (Barang bebas jual)
+                    </span>
+                  )}
                 </div>
               </div>
+
+              {itemKeterangan && (
+                <div style={{ display: 'flex', alignItems: 'flex-start', gap: '0.45rem', color: '#1E293B', marginTop: '0.2rem' }}>
+                  <Info size={14} color="#6366F1" style={{ marginTop: '2px', flexShrink: 0 }} />
+                  <div>
+                    <strong style={{ color: '#475569', fontSize: '0.74rem' }}>KETERANGAN BARANG: </strong>
+                    <span style={{ color: '#334155' }}>{itemKeterangan}</span>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
 

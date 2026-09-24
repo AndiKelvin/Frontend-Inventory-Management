@@ -248,6 +248,46 @@ const StockAPI = {
     movements.unshift(newEntry);
     localStorage.setItem("techstock_stock_movements", JSON.stringify(movements));
     return newEntry;
+  },
+
+  async deleteMovement(id) {
+    if (this.isServerAvailable) {
+      try {
+        const res = await fetch(`/api/stock/movements/${id}`, { method: "DELETE" });
+        if (res.ok) return true;
+      } catch (err) {
+        console.warn("Gagal hapus mutasi di server, fallback ke local", err);
+      }
+    }
+    const local = localStorage.getItem("techstock_stock_movements");
+    let movements = local ? JSON.parse(local) : [];
+    movements = movements.filter(m => String(m.id) !== String(id));
+    localStorage.setItem("techstock_stock_movements", JSON.stringify(movements));
+    return true;
+  },
+
+  async updateMovement(id, updateData) {
+    if (this.isServerAvailable) {
+      try {
+        const res = await fetch(`/api/stock/movements/${id}`, {
+          method: "PUT",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(updateData)
+        });
+        if (res.ok) return await res.json();
+      } catch (err) {
+        console.warn("Gagal update catatan log di server, fallback ke local", err);
+      }
+    }
+    const local = localStorage.getItem("techstock_stock_movements");
+    let movements = local ? JSON.parse(local) : [];
+    const idx = movements.findIndex(m => String(m.id) === String(id));
+    if (idx >= 0) {
+      movements[idx] = { ...movements[idx], ...updateData };
+      localStorage.setItem("techstock_stock_movements", JSON.stringify(movements));
+      return movements[idx];
+    }
+    return null;
   }
 };
 
