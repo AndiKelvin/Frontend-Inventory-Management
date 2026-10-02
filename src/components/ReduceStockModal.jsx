@@ -1,6 +1,7 @@
-import React, { useState, useEffect } from 'react';
-import { X, Save, MapPin, Monitor, Wrench, AlertTriangle, ArrowRight, Check, UserCheck, PlusCircle, Info } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, Save, MapPin, Monitor, Wrench, AlertTriangle, ArrowRight, Check, UserCheck, PlusCircle, Info, Search, ChevronDown, Building2 } from 'lucide-react';
 import { getBookedQty, parseNotesAndMapping, formatNotesAndMapping } from '../utils/stockUtils';
+import StockAPI from '../api';
 
 /**
  * Helper untuk mengurai akumulasi stok per lokasi/kategori dari data item
@@ -79,6 +80,59 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
   const [isBookingFulfillment, setIsBookingFulfillment] = useState(false);
   const [selectedClosingSalesId, setSelectedClosingSalesId] = useState('');
 
+  // State pencarian database customer & list sales
+  const [customers, setCustomers] = useState([]);
+  const [salesList, setSalesList] = useState([]);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [showSalesDropdown, setShowSalesDropdown] = useState(false);
+  const [selectedCustomerDetail, setSelectedCustomerDetail] = useState(null);
+
+  const salesRef = useRef(null);
+  const customerRef = useRef(null);
+
+  // Ambil data customer dan sales dari database saat modal dibuka
+  useEffect(() => {
+    if (show) {
+      StockAPI.getCustomers().then(data => {
+        if (Array.isArray(data)) setCustomers(data);
+      });
+      StockAPI.getSales().then(data => {
+        if (Array.isArray(data)) setSalesList(data);
+      });
+    }
+  }, [show]);
+
+  // Listener klik di luar dropdown untuk menutup dropdown
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (salesRef.current && !salesRef.current.contains(e.target)) {
+        setShowSalesDropdown(false);
+      }
+      if (customerRef.current && !customerRef.current.contains(e.target)) {
+        setShowCustomerDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Shortcut tombol Esc untuk menutup modal / dropdown
+  useEffect(() => {
+    if (!show) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (showCustomerDropdown || showSalesDropdown) {
+          setShowCustomerDropdown(false);
+          setShowSalesDropdown(false);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [show, showCustomerDropdown, showSalesDropdown, onClose]);
+
   useEffect(() => {
     if (item) {
       setActiveCategory('lokasi');
@@ -90,6 +144,9 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
       setRefInput('');
       setNotesInput('');
       setIsBookingFulfillment(false);
+      setSelectedCustomerDetail(null);
+      setShowCustomerDropdown(false);
+      setShowSalesDropdown(false);
 
       const { mappings: parsedMaps } = parseNotesAndMapping(item.notes || '');
       if (parsedMaps.length > 0) {
@@ -183,6 +240,24 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
   else if (activeCategory === 'klaim_doa' && isSpecialPart) currentAdjustAmount = Math.max(1, Math.min(maxAllowed, parseInt(doaQty, 10) || 1));
 
   const resultingQty = isAdd ? currentQty + currentAdjustAmount : Math.max(0, currentQty - currentAdjustAmount);
+
+  // Filter daftar sales sesuai input
+  const filteredSales = salesList.filter(s => {
+    if (!actorInput) return true;
+    return s.toLowerCase().includes(actorInput.toLowerCase().trim());
+  });
+
+  // Filter database customer sesuai pencarian (maksimal 30 opsi teratas agar ringan & cepat)
+  const filteredCustomers = customers.filter(c => {
+    if (!notesInput) return true;
+    const q = notesInput.toLowerCase().trim();
+    return (
+      (c.companyName && c.companyName.toLowerCase().includes(q)) ||
+      (c.contactName && c.contactName.toLowerCase().includes(q)) ||
+      (c.address && c.address.toLowerCase().includes(q)) ||
+      (c.phone && c.phone.toLowerCase().includes(q))
+    );
+  }).slice(0, 30);
 
   // Hitung teks Lokasi dan Mapping secara dinamis dan tersinkronisasi untuk SEMUA BARANG
   const getSyncedOutputs = () => {
@@ -955,26 +1030,106 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
             )}
 
             <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.6rem' }}>
-              <div>
+              {/* Kolom Sales dengan Fitur Filter & Search */}
+              <div ref={salesRef} style={{ position: 'relative' }}>
                 <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem' }}>
                   {isAdd ? 'Admin / Penginput:' : 'Sales:'}
                 </label>
-                <input
-                  type="text"
-                  placeholder={isAdd ? 'Admin Gudang' : 'Contoh: Kak Puput, Mas Fungherry'}
-                  value={actorInput}
-                  onChange={(e) => setActorInput(e.target.value)}
-                  style={{
-                    width: '100%',
-                    padding: '0.38rem 0.55rem',
-                    fontSize: '0.8rem',
-                    borderRadius: '5px',
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    placeholder={isAdd ? 'Admin Gudang' : 'Cari / ketik nama sales...'}
+                    value={actorInput}
+                    onFocus={() => !isAdd && setShowSalesDropdown(true)}
+                    onChange={(e) => {
+                      setActorInput(e.target.value);
+                      if (!isAdd) setShowSalesDropdown(true);
+                    }}
+                    style={{
+                      width: '100%',
+                      padding: isAdd ? '0.38rem 0.55rem' : '0.38rem 1.8rem 0.38rem 0.55rem',
+                      fontSize: '0.8rem',
+                      borderRadius: '5px',
+                      border: '1px solid #CBD5E1',
+                      outline: 'none',
+                      background: '#FFFFFF'
+                    }}
+                  />
+                  {!isAdd && (
+                    <button
+                      type="button"
+                      onClick={() => setShowSalesDropdown(prev => !prev)}
+                      style={{
+                        position: 'absolute',
+                        right: '4px',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '3px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        color: '#64748B'
+                      }}
+                      title="Lihat daftar sales"
+                    >
+                      <ChevronDown size={14} />
+                    </button>
+                  )}
+                </div>
+
+                {/* Dropdown Hasil Pencarian Sales */}
+                {!isAdd && showSalesDropdown && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    maxHeight: '160px',
+                    overflowY: 'auto',
+                    background: '#FFFFFF',
                     border: '1px solid #CBD5E1',
-                    outline: 'none'
-                  }}
-                />
+                    borderRadius: '6px',
+                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
+                    zIndex: 100,
+                    marginTop: '3px'
+                  }}>
+                    {filteredSales.length === 0 ? (
+                      <div style={{ padding: '6px 10px', fontSize: '0.74rem', color: '#94A3B8' }}>
+                        Tekan enter/simpan untuk sales baru ini
+                      </div>
+                    ) : (
+                      filteredSales.map((salesName, idx) => (
+                        <div
+                          key={idx}
+                          onClick={() => {
+                            setActorInput(salesName);
+                            setShowSalesDropdown(false);
+                          }}
+                          style={{
+                            padding: '6px 10px',
+                            fontSize: '0.78rem',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid #F8FAFC',
+                            color: '#1E293B',
+                            fontWeight: actorInput === salesName ? 700 : 500,
+                            background: actorInput === salesName ? '#EFF6FF' : '#FFFFFF',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '5px'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = '#F1F5F9'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = actorInput === salesName ? '#EFF6FF' : '#FFFFFF'; }}
+                        >
+                          <span>👤</span>
+                          <span>{salesName}</span>
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
 
+              {/* Kolom No PO / Ref */}
               <div>
                 <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem' }}>
                   No. PO / Surat Jalan / Ref:
@@ -990,30 +1145,151 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
                     fontSize: '0.8rem',
                     borderRadius: '5px',
                     border: '1px solid #CBD5E1',
-                    outline: 'none'
+                    outline: 'none',
+                    background: '#FFFFFF'
                   }}
                 />
               </div>
             </div>
 
-            <div style={{ marginTop: '0.45rem' }}>
-              <label style={{ display: 'block', fontSize: '0.72rem', fontWeight: 600, color: '#475569', marginBottom: '0.2rem' }}>
-                {isAdd ? 'Catatan Tambahan (Opsional):' : 'Customer:'}
-              </label>
-              <input
-                type="text"
-                placeholder={isAdd ? 'Keterangan penambahan barang...' : 'Contoh: PT ABC, Bapak Hendra, dsb.'}
-                value={notesInput}
-                onChange={(e) => setNotesInput(e.target.value)}
-                style={{
-                  width: '100%',
-                  padding: '0.38rem 0.55rem',
-                  fontSize: '0.8rem',
+            {/* Kolom Customer dengan Filter & Pencarian Database Neon */}
+            <div ref={customerRef} style={{ marginTop: '0.45rem', position: 'relative' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                <label style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569' }}>
+                  {isAdd ? 'Catatan Tambahan (Opsional):' : 'Customer:'}
+                </label>
+                {!isAdd && customers.length > 0 && (
+                  <span style={{ fontSize: '0.67rem', color: '#0284C7', background: '#F0F9FF', padding: '1px 6px', borderRadius: '4px', border: '1px solid #BAE6FD', fontWeight: 600 }}>
+                    ⚡ {customers.length} Customer di Database
+                  </span>
+                )}
+              </div>
+
+              <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                <input
+                  type="text"
+                  placeholder={isAdd ? 'Keterangan penambahan barang...' : 'Ketik nama perusahaan untuk mencari di database...'}
+                  value={notesInput}
+                  onFocus={() => !isAdd && setShowCustomerDropdown(true)}
+                  onChange={(e) => {
+                    setNotesInput(e.target.value);
+                    if (!isAdd) {
+                      setShowCustomerDropdown(true);
+                      setSelectedCustomerDetail(null);
+                    }
+                  }}
+                  style={{
+                    width: '100%',
+                    padding: isAdd ? '0.38rem 0.55rem' : '0.38rem 1.8rem 0.38rem 0.55rem',
+                    fontSize: '0.8rem',
+                    borderRadius: '5px',
+                    border: '1px solid #CBD5E1',
+                    outline: 'none',
+                    background: '#FFFFFF'
+                  }}
+                />
+                {!isAdd && (
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomerDropdown(prev => !prev)}
+                    style={{
+                      position: 'absolute',
+                      right: '4px',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '3px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: '#64748B'
+                    }}
+                    title="Buka / tutup list customer"
+                  >
+                    <Search size={14} />
+                  </button>
+                )}
+              </div>
+
+              {/* Rangkuman Detail Info Customer yang Sedang Dipilih */}
+              {!isAdd && selectedCustomerDetail && (
+                <div style={{
+                  marginTop: '4px',
+                  padding: '5px 8px',
+                  background: '#F0FDF4',
+                  border: '1px solid #BBF7D0',
                   borderRadius: '5px',
+                  fontSize: '0.71rem',
+                  color: '#166534',
+                  display: 'flex',
+                  flexWrap: 'wrap',
+                  gap: '8px'
+                }}>
+                  {selectedCustomerDetail.contactName && (
+                    <span>👤 <strong>PIC:</strong> {selectedCustomerDetail.contactName}</span>
+                  )}
+                  {selectedCustomerDetail.phone && (
+                    <span>📞 <strong>Telp:</strong> {selectedCustomerDetail.phone}</span>
+                  )}
+                  {selectedCustomerDetail.address && (
+                    <span>📍 <strong>Alamat:</strong> {selectedCustomerDetail.address}</span>
+                  )}
+                </div>
+              )}
+
+              {/* Dropdown Pencarian Customer Real-Time */}
+              {!isAdd && showCustomerDropdown && (
+                <div style={{
+                  position: 'absolute',
+                  top: '100%',
+                  left: 0,
+                  right: 0,
+                  maxHeight: '210px',
+                  overflowY: 'auto',
+                  background: '#FFFFFF',
                   border: '1px solid #CBD5E1',
-                  outline: 'none'
-                }}
-              />
+                  borderRadius: '6px',
+                  boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+                  zIndex: 100,
+                  marginTop: '3px'
+                }}>
+                  {filteredCustomers.length === 0 ? (
+                    <div style={{ padding: '8px 12px', fontSize: '0.75rem', color: '#94A3B8' }}>
+                      Tidak ditemukan perusahaan &quot;{notesInput}&quot; (akan disimpan sebagai nama baru)
+                    </div>
+                  ) : (
+                    filteredCustomers.map((c) => (
+                      <div
+                        key={c.id}
+                        onClick={() => {
+                          setNotesInput(c.companyName);
+                          setSelectedCustomerDetail(c);
+                          setShowCustomerDropdown(false);
+                        }}
+                        style={{
+                          padding: '7px 10px',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid #F1F5F9',
+                          background: notesInput === c.companyName ? '#EFF6FF' : '#FFFFFF'
+                        }}
+                        onMouseEnter={(e) => { e.currentTarget.style.background = '#F8FAFC'; }}
+                        onMouseLeave={(e) => { e.currentTarget.style.background = notesInput === c.companyName ? '#EFF6FF' : '#FFFFFF'; }}
+                      >
+                        <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <Building2 size={13} color="#2563EB" />
+                          <span>{c.companyName}</span>
+                        </div>
+                        {(c.address || c.contactName || c.phone) && (
+                          <div style={{ fontSize: '0.69rem', color: '#64748B', marginTop: '2px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                            {c.contactName && <span>👤 PIC: {c.contactName}</span>}
+                            {c.phone && <span>📞 {c.phone}</span>}
+                            {c.address && <span>📍 {c.address.length > 40 ? `${c.address.substring(0, 40)}...` : c.address}</span>}
+                          </div>
+                        )}
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
             </div>
           </div>
 

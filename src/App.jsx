@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, Search, Layers, Laptop, Archive, AlertTriangle, XCircle, RotateCcw, Check, FileSpreadsheet, History, Upload, BookmarkCheck } from 'lucide-react';
+import { PlusCircle, Search, Layers, Laptop, Archive, AlertTriangle, XCircle, RotateCcw, Check, FileSpreadsheet, History, Upload, BookmarkCheck, Lock } from 'lucide-react';
 import StockAPI from './api';
 import Dashboard from './components/Dashboard';
 import StockList from './components/StockList';
@@ -8,6 +8,7 @@ import ReduceStockModal from './components/ReduceStockModal';
 import ExportBrandModal from './components/ExportBrandModal';
 import MovementLogsModal from './components/MovementLogsModal';
 import ImportExcelModal from './components/ImportExcelModal';
+import PinLockScreen from './components/PinLockScreen';
 import { getBookedQty } from './utils/stockUtils';
 import {
   exportSmbHpJpg,
@@ -17,7 +18,14 @@ import {
 } from './services/imageExportService';
 
 function App() {
-  const [items, setItems] = useState([]);
+  const [items, setItems] = useState(() => {
+    try {
+      const local = localStorage.getItem('techstock_modular_inventory');
+      return local ? JSON.parse(local) : [];
+    } catch {
+      return [];
+    }
+  });
   const [activeBrand, setActiveBrand] = useState('all');
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
@@ -44,6 +52,24 @@ function App() {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3800);
   };
+
+  // Shortcut Escape global untuk menutup modal/popup yang aktif
+  useEffect(() => {
+    const handleGlobalKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (showMovementLogs || stockModalItem) return;
+        if (showForm) {
+          setShowForm(false);
+        } else if (exportModalType) {
+          setExportModalType(null);
+        } else if (showImportModal) {
+          setShowImportModal(false);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleGlobalKeyDown);
+    return () => window.removeEventListener('keydown', handleGlobalKeyDown);
+  }, [showMovementLogs, stockModalItem, showForm, exportModalType, showImportModal]);
 
   const handleExportExcel = async () => {
     try {
@@ -121,9 +147,41 @@ function App() {
     ]);
   };
 
+  // Autentikasi PIN Gate
+  const [isAuthenticated, setIsAuthenticated] = useState(() => StockAPI.hasLocalToken());
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
+
+  // Inisialisasi & Verifikasi Sesi Token saat web pertama kali dibuka
   useEffect(() => {
-    const loadData = async () => {
+    let isMounted = true;
+    const verifyAuth = async () => {
       await StockAPI.init();
+      if (StockAPI.hasLocalToken()) {
+        const isValid = await StockAPI.checkAuth();
+        if (isMounted) setIsAuthenticated(isValid);
+      } else {
+        if (isMounted) setIsAuthenticated(false);
+      }
+      if (isMounted) setIsCheckingAuth(false);
+    };
+    verifyAuth();
+
+    // Event jika sewaktu-waktu backend mengirim 401 Unauthorized
+    const handleUnauthorizedEvent = () => {
+      if (isMounted) setIsAuthenticated(false);
+    };
+    window.addEventListener('techstock-unauthorized', handleUnauthorizedEvent);
+
+    return () => {
+      isMounted = false;
+      window.removeEventListener('techstock-unauthorized', handleUnauthorizedEvent);
+    };
+  }, []);
+
+  // Fetch data hanya jika pengguna terautentikasi
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    const loadData = async () => {
       const data = await StockAPI.getAllStock();
       if (data) {
         setItems(data);
@@ -139,7 +197,7 @@ function App() {
       }
     };
     loadData();
-  }, []);
+  }, [isAuthenticated]);
 
   const getFilteredItems = () => {
     let result = [...items];
@@ -356,9 +414,20 @@ function App() {
     return 0;
   };
 
+  const handleLogout = async () => {
+    await StockAPI.logout();
+    setIsAuthenticated(false);
+    showToast('🔒 Sesi telah dikunci');
+  };
+
   return (
-    <div className="app-container">
-      <header className="app-header">
+    <>
+      <div
+        className="app-container"
+        style={!isAuthenticated ? { filter: 'blur(6px)', pointerEvents: 'none', userSelect: 'none', transition: 'filter 0.3s ease' } : { transition: 'filter 0.3s ease' }}
+        aria-hidden={!isAuthenticated}
+      >
+        <header className="app-header">
         <div className="header-brand">
           <div className="brand-icon">
             <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -377,6 +446,16 @@ function App() {
         <div className="header-actions">
           <button
             type="button"
+            className="btn btn-secondary"
+            onClick={handleLogout}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #CBD5E1', color: '#475569' }}
+            title="Kunci sesi web (memerlukan PIN 123451 untuk masuk kembali)"
+          >
+            <Lock size={15} color="#DC2626" />
+            <span>Kunci</span>
+          </button>
+          <button
+            type="button"
             className="btn btn-secondary btn-undo"
             onClick={handleUndo}
             disabled={history.length === 0}
@@ -391,10 +470,10 @@ function App() {
             className="btn btn-secondary"
             onClick={() => setShowMovementLogs(true)}
             style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #CBD5E1' }}
-            title="Lihat histori Job Log (keluar-masuk barang, serah terima sales, dan audit no PO)"
+            title="Lihat riwayat History (keluar-masuk barang, serah terima sales, dan audit no PO)"
           >
             <History size={16} color="#2563EB" />
-            <span>Job Log</span>
+            <span>History</span>
           </button>
           <button
             type="button"
@@ -549,7 +628,12 @@ function App() {
           </div>
         </div>
       )}
-    </div>
+      </div>
+
+      {!isAuthenticated && (
+        <PinLockScreen onAuthenticated={() => setIsAuthenticated(true)} />
+      )}
+    </>
   );
 }
 

@@ -1,5 +1,5 @@
-import React, { useState, useEffect } from 'react';
-import { X, History, Search, Download, ArrowDownRight, ArrowUpRight, Tag, SlidersHorizontal, RefreshCw, Trash2, Edit, Save, Check, Calendar, Package } from 'lucide-react';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, History, Search, Download, ArrowDownRight, ArrowUpRight, Tag, SlidersHorizontal, RefreshCw, Trash2, Edit, Save, Check, Calendar, Package, ChevronDown, Building2 } from 'lucide-react';
 import StockAPI from '../api';
 
 const toLocalISOString = (dateVal) => {
@@ -22,7 +22,7 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [deletingId, setDeletingId] = useState(null);
 
-  // State untuk Edit Catatan Job Log
+  // State untuk Edit Catatan History
   const [editingMovement, setEditingMovement] = useState(null);
   const [editForm, setEditForm] = useState({
     timestamp: '',
@@ -39,13 +39,23 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
   });
   const [savingEdit, setSavingEdit] = useState(false);
 
+  // State untuk data Customer & Sales pada edit modal
+  const [customers, setCustomers] = useState([]);
+  const [salesList, setSalesList] = useState([]);
+  const [showCustomerDropdown, setShowCustomerDropdown] = useState(false);
+  const [showSalesDropdown, setShowSalesDropdown] = useState(false);
+  const [selectedCustomerDetail, setSelectedCustomerDetail] = useState(null);
+
+  const editSalesRef = useRef(null);
+  const editCustomerRef = useRef(null);
+
   const fetchMovements = async () => {
     setLoading(true);
     try {
       const data = await StockAPI.getMovements({ search, type: typeFilter });
       setMovements(data || []);
     } catch (err) {
-      console.error('Gagal mengambil data Job Log:', err);
+      console.error('Gagal mengambil data History:', err);
     } finally {
       setLoading(false);
     }
@@ -54,8 +64,47 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
   useEffect(() => {
     if (show) {
       fetchMovements();
+      StockAPI.getCustomers().then(data => {
+        if (Array.isArray(data)) setCustomers(data);
+      });
+      StockAPI.getSales().then(data => {
+        if (Array.isArray(data)) setSalesList(data);
+      });
     }
   }, [show, typeFilter]);
+
+  // Shortcut tombol Esc untuk menutup modal / sub-modal edit
+  useEffect(() => {
+    if (!show) return;
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        if (showCustomerDropdown || showSalesDropdown) {
+          setShowCustomerDropdown(false);
+          setShowSalesDropdown(false);
+        } else if (editingMovement) {
+          setEditingMovement(null);
+        } else {
+          onClose();
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [show, showCustomerDropdown, showSalesDropdown, editingMovement, onClose]);
+
+  // Click outside listener untuk dropdown di edit modal
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (editSalesRef.current && !editSalesRef.current.contains(e.target)) {
+        setShowSalesDropdown(false);
+      }
+      if (editCustomerRef.current && !editCustomerRef.current.contains(e.target)) {
+        setShowCustomerDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
 
   const handleSearchSubmit = (e) => {
     e.preventDefault();
@@ -77,6 +126,11 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
       reference: m.reference || '',
       notes: m.notes || ''
     });
+
+    const matched = customers.find(c => (c.companyName || '').toLowerCase() === (m.notes || '').toLowerCase().trim());
+    setSelectedCustomerDetail(matched || null);
+    setShowSalesDropdown(false);
+    setShowCustomerDropdown(false);
   };
 
   const handleSaveEdit = async (e) => {
@@ -97,15 +151,15 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
       }
       setEditingMovement(null);
     } catch (err) {
-      console.error('Gagal memperbarui catatan Job Log:', err);
-      alert('Gagal memperbarui catatan Job Log.');
+      console.error('Gagal memperbarui catatan History:', err);
+      alert('Gagal memperbarui catatan History.');
     } finally {
       setSavingEdit(false);
     }
   };
 
   const handleDelete = async (item) => {
-    const confirmMsg = `Hapus catatan Job Log "${item.itemName || 'ini'}" (${item.type} ${item.amount} unit)?`;
+    const confirmMsg = `Hapus catatan History "${item.itemName || 'ini'}" (${item.type} ${item.amount} unit)?`;
     if (!window.confirm(confirmMsg)) return;
 
     setDeletingId(item.id);
@@ -113,8 +167,8 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
       await StockAPI.deleteMovement(item.id);
       setMovements((prev) => prev.filter((m) => m.id !== item.id));
     } catch (err) {
-      console.error('Gagal menghapus catatan Job Log:', err);
-      alert('Gagal menghapus catatan Job Log.');
+      console.error('Gagal menghapus catatan History:', err);
+      alert('Gagal menghapus catatan History.');
     } finally {
       setDeletingId(null);
     }
@@ -123,7 +177,7 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
   const handleExportCSV = () => {
     if (!movements || movements.length === 0) return;
 
-    const headers = ['ID', 'Waktu', 'Tipe', 'Brand', 'Part Number', 'Nama Barang', 'Jumlah', 'Sisa Stok', 'Lokasi', 'Penerima / Sales', 'No PO / Ref', 'Catatan'];
+    const headers = ['ID', 'Waktu', 'Tipe', 'Brand', 'Part Number', 'Nama Barang', 'Jumlah', 'Sisa Stok', 'Lokasi', 'Penerima / Sales', 'No PO / Ref', 'Customer'];
     const rows = movements.map((m) => [
       `"${m.id || ''}"`,
       `"${m.timestamp ? new Date(m.timestamp).toLocaleString('id-ID') : ''}"`,
@@ -143,11 +197,29 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
     const encodedUri = encodeURI(csvContent);
     const link = document.createElement('a');
     link.setAttribute('href', encodedUri);
-    link.setAttribute('download', `Job_Log_${new Date().toISOString().slice(0, 10)}.csv`);
+    link.setAttribute('download', `History_${new Date().toISOString().slice(0, 10)}.csv`);
     document.body.appendChild(link);
     link.click();
     document.body.removeChild(link);
   };
+
+  // Filter daftar sales sesuai input di edit modal
+  const filteredSales = salesList.filter(s => {
+    if (!editForm.actor) return true;
+    return s.toLowerCase().includes(editForm.actor.toLowerCase().trim());
+  });
+
+  // Filter database customer sesuai pencarian di edit modal
+  const filteredCustomers = customers.filter(c => {
+    if (!editForm.notes) return true;
+    const q = editForm.notes.toLowerCase().trim();
+    return (
+      (c.companyName && c.companyName.toLowerCase().includes(q)) ||
+      (c.contactName && c.contactName.toLowerCase().includes(q)) ||
+      (c.address && c.address.toLowerCase().includes(q)) ||
+      (c.phone && c.phone.toLowerCase().includes(q))
+    );
+  }).slice(0, 30);
 
   if (!show) return null;
 
@@ -170,7 +242,7 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
             </div>
             <div>
               <h3 style={{ margin: 0, fontSize: '1.15rem', fontWeight: 700, color: '#0F172A' }}>
-                Job Log
+                History
               </h3>
               <p style={{ margin: 0, fontSize: '0.78rem', color: '#64748B' }}>
                 Histori aktivitas keluar-masuk barang, serah terima sales/penerima, dan nomor PO
@@ -209,7 +281,7 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
               <Search size={15} style={{ position: 'absolute', left: '10px', color: '#94A3B8' }} />
               <input
                 type="text"
-                placeholder="Cari di Job Log (nama barang, part number, sales, no PO)..."
+                placeholder="Cari di History (nama barang, part number, sales, no PO)..."
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 style={{
@@ -300,7 +372,7 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
             <button
               type="button"
               onClick={fetchMovements}
-              title="Refresh Job Log"
+              title="Refresh History"
               style={{
                 padding: '0.45rem',
                 border: '1px solid #CBD5E1',
@@ -347,16 +419,16 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
           <span><strong>Tips:</strong> Klik baris tabel mana pun untuk mengedit catatan jika terjadi kesalahan input (tidak perlu menghapus data).</span>
         </div>
 
-        {/* Tabel Job Log */}
+        {/* Tabel History */}
         <div style={{ flex: 1, overflowY: 'auto', marginTop: '0.25rem', minHeight: '300px' }}>
           {loading ? (
             <div style={{ textAlign: 'center', padding: '3rem', color: '#64748B' }}>
-              Memuat data Job Log...
+              Memuat data History...
             </div>
           ) : movements.length === 0 ? (
             <div style={{ textAlign: 'center', padding: '3.5rem 1rem', color: '#94A3B8' }}>
               <History size={42} strokeWidth={1.5} style={{ margin: '0 auto 0.75rem', display: 'block', opacity: 0.6 }} />
-              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#475569' }}>Belum ada catatan Job Log</div>
+              <div style={{ fontSize: '0.95rem', fontWeight: 600, color: '#475569' }}>Belum ada catatan History</div>
               <p style={{ fontSize: '0.8rem', maxWidth: '400px', margin: '0.35rem auto 0' }}>
                 Setiap kali Anda menambah, mengurangi stok via tombol [-] / [+], atau melakukan booking, catatan historis akan otomatis muncul di sini.
               </p>
@@ -372,7 +444,7 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
                   <th style={{ width: '120px' }}>Lokasi</th>
                   <th style={{ width: '130px' }}>Penerima / Sales</th>
                   <th style={{ width: '110px' }}>No. PO / Ref</th>
-                  <th>Catatan</th>
+                  <th>Customer</th>
                   <th style={{ width: '70px', textAlign: 'center' }}>Aksi</th>
                 </tr>
               </thead>
@@ -414,7 +486,7 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
                     <tr
                       key={m.id}
                       onClick={() => handleStartEdit(m)}
-                      title="Klik baris untuk edit catatan Job Log ini"
+                      title="Klik baris untuk edit catatan History ini"
                       style={{ cursor: 'pointer', transition: 'background-color 0.12s ease' }}
                       onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#F1F5F9'; }}
                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
@@ -489,7 +561,7 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
                               e.stopPropagation();
                               handleStartEdit(m);
                             }}
-                            title="Edit Catatan Job Log"
+                            title="Edit Catatan History"
                             style={{
                               border: 'none',
                               background: 'transparent',
@@ -546,7 +618,7 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
         {/* Footer */}
         <div className="modal-footer" style={{ borderTop: '1px solid #E2E8F0', paddingTop: '0.75rem', marginTop: '0.5rem' }}>
           <div style={{ fontSize: '0.76rem', color: '#64748B' }}>
-            Total: <strong>{movements.length}</strong> catatan Job Log
+            Total: <strong>{movements.length}</strong> catatan History
           </div>
           <button type="button" className="btn btn-secondary" onClick={onClose}>
             Tutup
@@ -554,7 +626,7 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
         </div>
       </div>
 
-      {/* Sub-modal: Edit Catatan Job Log */}
+      {/* Sub-modal: Edit Catatan History */}
       {editingMovement && (
         <div
           className="modal-overlay active"
@@ -569,7 +641,7 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
             <div className="modal-header">
               <div>
                 <h3 style={{ margin: 0, fontSize: '1.05rem', fontWeight: 700, color: '#0F172A' }}>
-                  Edit Catatan Job Log
+                  Edit Catatan History
                 </h3>
                 <p style={{ margin: 0, fontSize: '0.76rem', color: '#64748B' }}>
                   Koreksi tanggal transaksi, tipe barang, penerima, atau tujuan barang keluar
@@ -704,19 +776,96 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
                     placeholder="Misal: Pallazo (6), IT Talk SBY (1)"
                   />
                 </div>
-                <div className="form-group">
-                  <label>Penerima / Sales / Customer</label>
-                  <input
-                    type="text"
-                    className="form-control"
-                    value={editForm.actor}
-                    onChange={(e) => setEditForm(prev => ({ ...prev, actor: e.target.value }))}
-                    placeholder="Misal: Kak Grace, Mas Fungherry, PT ABC"
-                  />
+                {/* Kolom Sales dengan Filter & Search Dropdown */}
+                <div className="form-group" ref={editSalesRef} style={{ position: 'relative' }}>
+                  <label>Penerima / Sales</label>
+                  <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                    <input
+                      type="text"
+                      className="form-control"
+                      value={editForm.actor}
+                      onFocus={() => setShowSalesDropdown(true)}
+                      onChange={(e) => {
+                        setEditForm(prev => ({ ...prev, actor: e.target.value }));
+                        setShowSalesDropdown(true);
+                      }}
+                      placeholder="Cari / ketik nama sales..."
+                      style={{ paddingRight: '1.8rem', background: '#FFFFFF' }}
+                    />
+                    <button
+                      type="button"
+                      onClick={() => setShowSalesDropdown(prev => !prev)}
+                      style={{
+                        position: 'absolute',
+                        right: '4px',
+                        background: 'transparent',
+                        border: 'none',
+                        cursor: 'pointer',
+                        padding: '3px',
+                        display: 'flex',
+                        alignItems: 'center',
+                        color: '#64748B'
+                      }}
+                      title="Lihat daftar sales"
+                    >
+                      <ChevronDown size={14} />
+                    </button>
+                  </div>
+
+                  {/* Dropdown Hasil Pencarian Sales */}
+                  {showSalesDropdown && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      maxHeight: '160px',
+                      overflowY: 'auto',
+                      background: '#FFFFFF',
+                      border: '1px solid #CBD5E1',
+                      borderRadius: '6px',
+                      boxShadow: '0 4px 12px rgba(0,0,0,0.12)',
+                      zIndex: 1200,
+                      marginTop: '3px'
+                    }}>
+                      {filteredSales.length === 0 ? (
+                        <div style={{ padding: '6px 10px', fontSize: '0.74rem', color: '#94A3B8' }}>
+                          Tekan simpan untuk sales baru ini
+                        </div>
+                      ) : (
+                        filteredSales.map((salesName, idx) => (
+                          <div
+                            key={idx}
+                            onClick={() => {
+                              setEditForm(prev => ({ ...prev, actor: salesName }));
+                              setShowSalesDropdown(false);
+                            }}
+                            style={{
+                              padding: '6px 10px',
+                              fontSize: '0.78rem',
+                              cursor: 'pointer',
+                              borderBottom: '1px solid #F8FAFC',
+                              color: '#1E293B',
+                              fontWeight: editForm.actor === salesName ? 700 : 500,
+                              background: editForm.actor === salesName ? '#EFF6FF' : '#FFFFFF',
+                              display: 'flex',
+                              alignItems: 'center',
+                              gap: '5px'
+                            }}
+                            onMouseEnter={(e) => { e.currentTarget.style.background = '#F1F5F9'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.background = editForm.actor === salesName ? '#EFF6FF' : '#FFFFFF'; }}
+                          >
+                            <span>👤</span>
+                            <span>{salesName}</span>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  )}
                 </div>
               </div>
 
-              {/* 5. Referensi PO & Keterangan Kemana Barang Keluar */}
+              {/* 5. Referensi PO & Customer */}
               <div className="form-group">
                 <label>No. PO / Surat Jalan / No. Referensi</label>
                 <input
@@ -728,18 +877,133 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
                 />
               </div>
 
-              <div className="form-group">
-                <label>Tujuan Barang & Catatan Detail</label>
-                <input
-                  type="text"
-                  className="form-control"
-                  value={editForm.notes}
-                  onChange={(e) => setEditForm(prev => ({ ...prev, notes: e.target.value }))}
-                  placeholder="Misal: Dikirim ke cabang Surabaya untuk project Bank Mandiri..."
-                />
-                <span style={{ fontSize: '0.72rem', color: '#64748B', display: 'block', marginTop: '0.2rem' }}>
-                  Menyimpan history barang tersebut keluar ke mana agar data tercatat rapi dan terstruktur.
-                </span>
+              {/* Kolom Customer dengan Filter & Pencarian Database Neon */}
+              <div className="form-group" ref={editCustomerRef} style={{ position: 'relative' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                  <label style={{ fontSize: '0.75rem', fontWeight: 600, color: '#1E293B', margin: 0 }}>
+                    Customer
+                  </label>
+                  {customers.length > 0 && (
+                    <span style={{ fontSize: '0.67rem', color: '#0284C7', background: '#F0F9FF', padding: '1px 6px', borderRadius: '4px', border: '1px solid #BAE6FD', fontWeight: 600 }}>
+                      ⚡ {customers.length} Customer di Database
+                    </span>
+                  )}
+                </div>
+
+                <div style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                  <input
+                    type="text"
+                    className="form-control"
+                    value={editForm.notes}
+                    onFocus={() => setShowCustomerDropdown(true)}
+                    onChange={(e) => {
+                      setEditForm(prev => ({ ...prev, notes: e.target.value }));
+                      setShowCustomerDropdown(true);
+                      setSelectedCustomerDetail(null);
+                    }}
+                    placeholder="Ketik nama perusahaan untuk mencari di database..."
+                    style={{ paddingRight: '1.8rem', background: '#FFFFFF' }}
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowCustomerDropdown(prev => !prev)}
+                    style={{
+                      position: 'absolute',
+                      right: '4px',
+                      background: 'transparent',
+                      border: 'none',
+                      cursor: 'pointer',
+                      padding: '3px',
+                      display: 'flex',
+                      alignItems: 'center',
+                      color: '#64748B'
+                    }}
+                    title="Buka / tutup list customer"
+                  >
+                    <Search size={14} />
+                  </button>
+                </div>
+
+                {/* Rangkuman Detail Info Customer yang Sedang Dipilih */}
+                {selectedCustomerDetail && (
+                  <div style={{
+                    marginTop: '4px',
+                    padding: '5px 8px',
+                    background: '#F0FDF4',
+                    border: '1px solid #BBF7D0',
+                    borderRadius: '5px',
+                    fontSize: '0.71rem',
+                    color: '#166534',
+                    display: 'flex',
+                    flexWrap: 'wrap',
+                    gap: '8px'
+                  }}>
+                    {selectedCustomerDetail.contactName && (
+                      <span>👤 <strong>PIC:</strong> {selectedCustomerDetail.contactName}</span>
+                    )}
+                    {selectedCustomerDetail.phone && (
+                      <span>📞 <strong>Telp:</strong> {selectedCustomerDetail.phone}</span>
+                    )}
+                    {selectedCustomerDetail.address && (
+                      <span>📍 <strong>Alamat:</strong> {selectedCustomerDetail.address}</span>
+                    )}
+                  </div>
+                )}
+
+                {/* Dropdown Pencarian Customer Real-Time */}
+                {showCustomerDropdown && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    maxHeight: '190px',
+                    overflowY: 'auto',
+                    background: '#FFFFFF',
+                    border: '1px solid #CBD5E1',
+                    borderRadius: '6px',
+                    boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
+                    zIndex: 1200,
+                    marginTop: '3px'
+                  }}>
+                    {filteredCustomers.length === 0 ? (
+                      <div style={{ padding: '8px 12px', fontSize: '0.75rem', color: '#94A3B8' }}>
+                        Tidak ditemukan perusahaan &quot;{editForm.notes}&quot; (akan disimpan sebagai nama baru)
+                      </div>
+                    ) : (
+                      filteredCustomers.map((c) => (
+                        <div
+                          key={c.id}
+                          onClick={() => {
+                            setEditForm(prev => ({ ...prev, notes: c.companyName }));
+                            setSelectedCustomerDetail(c);
+                            setShowCustomerDropdown(false);
+                          }}
+                          style={{
+                            padding: '7px 10px',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid #F1F5F9',
+                            background: editForm.notes === c.companyName ? '#EFF6FF' : '#FFFFFF'
+                          }}
+                          onMouseEnter={(e) => { e.currentTarget.style.background = '#F8FAFC'; }}
+                          onMouseLeave={(e) => { e.currentTarget.style.background = editForm.notes === c.companyName ? '#EFF6FF' : '#FFFFFF'; }}
+                        >
+                          <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                            <Building2 size={13} color="#2563EB" />
+                            <span>{c.companyName}</span>
+                          </div>
+                          {(c.address || c.contactName || c.phone) && (
+                            <div style={{ fontSize: '0.69rem', color: '#64748B', marginTop: '2px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                              {c.contactName && <span>👤 PIC: {c.contactName}</span>}
+                              {c.phone && <span>📞 {c.phone}</span>}
+                              {c.address && <span>📍 {c.address.length > 40 ? `${c.address.substring(0, 40)}...` : c.address}</span>}
+                            </div>
+                          )}
+                        </div>
+                      ))
+                    )}
+                  </div>
+                )}
               </div>
 
               <div className="modal-footer" style={{ borderTop: '1px solid #E2E8F0', paddingTop: '0.85rem', marginTop: '0.75rem' }}>
