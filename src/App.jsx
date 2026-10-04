@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { PlusCircle, Search, Layers, Laptop, Archive, AlertTriangle, XCircle, RotateCcw, Check, FileSpreadsheet, History, Upload, BookmarkCheck, Lock } from 'lucide-react';
+import { PlusCircle, Search, Layers, Laptop, Archive, AlertTriangle, XCircle, RotateCcw, Check, FileSpreadsheet, History, Upload, BookmarkCheck, Lock, Building2, RefreshCw } from 'lucide-react';
 import StockAPI from './api';
 import Dashboard from './components/Dashboard';
 import StockList from './components/StockList';
@@ -8,6 +8,8 @@ import ReduceStockModal from './components/ReduceStockModal';
 import ExportBrandModal from './components/ExportBrandModal';
 import MovementLogsModal from './components/MovementLogsModal';
 import ImportExcelModal from './components/ImportExcelModal';
+import MasterDataModal from './components/MasterDataModal';
+import ConfirmDialog from './components/ConfirmDialog';
 import PinLockScreen from './components/PinLockScreen';
 import { getBookedQty } from './utils/stockUtils';
 import {
@@ -36,9 +38,17 @@ function App() {
   const [stockModalItem, setStockModalItem] = useState(null);
   const [stockModalMode, setStockModalMode] = useState('reduce'); // 'reduce' | 'add'
 
-  // Modal Riwayat Mutasi & Import Excel
+  // Modal Riwayat Mutasi, Import Excel, & Master Data
   const [showMovementLogs, setShowMovementLogs] = useState(false);
   const [showImportModal, setShowImportModal] = useState(false);
+  const [showMasterModal, setShowMasterModal] = useState(false);
+
+  // Dialog Konfirmasi Hapus Unit Kustom
+  const [deleteTargetItem, setDeleteTargetItem] = useState(null);
+
+  // Status Sinkronisasi Latar Belakang (Auto Polling)
+  const [isLiveSyncing, setIsLiveSyncing] = useState(false);
+  const [lastSyncTime, setLastSyncTime] = useState(new Date());
 
   // Modal pemilihan brand untuk Export SMB & Export Distri
   const [exportModalType, setExportModalType] = useState(null); // 'SMB' | 'Distri' | null
@@ -57,9 +67,14 @@ function App() {
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       if (e.key === 'Escape') {
-        if (showMovementLogs || stockModalItem) return;
-        if (showForm) {
+        if (deleteTargetItem) {
+          setDeleteTargetItem(null);
+        } else if (showMovementLogs || stockModalItem) {
+          return;
+        } else if (showForm) {
           setShowForm(false);
+        } else if (showMasterModal) {
+          setShowMasterModal(false);
         } else if (exportModalType) {
           setExportModalType(null);
         } else if (showImportModal) {
@@ -69,7 +84,7 @@ function App() {
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [showMovementLogs, stockModalItem, showForm, exportModalType, showImportModal]);
+  }, [deleteTargetItem, showMovementLogs, stockModalItem, showForm, showMasterModal, exportModalType, showImportModal]);
 
   const handleExportExcel = async () => {
     try {
@@ -199,6 +214,55 @@ function App() {
     loadData();
   }, [isAuthenticated]);
 
+  // Background Auto-Refresh Polling (setiap 25 detik saat tab aktif)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const interval = setInterval(async () => {
+      if (document.visibilityState !== 'visible') return;
+      try {
+        const freshData = await StockAPI.getAllStock();
+        if (freshData && Array.isArray(freshData)) {
+          setItems((prevItems) => {
+            const isDifferent =
+              prevItems.length !== freshData.length ||
+              freshData.some((f, idx) => {
+                const p = prevItems[idx];
+                return !p || p.id !== f.id || p.qty !== f.qty || p.updatedAt !== f.updatedAt;
+              });
+            if (isDifferent) {
+              localStorage.setItem('techstock_modular_inventory', JSON.stringify(freshData));
+              return freshData;
+            }
+            return prevItems;
+          });
+          setLastSyncTime(new Date());
+        }
+      } catch (err) {
+        console.warn('Auto-sync background check gagal:', err);
+      }
+    }, 25000);
+
+    return () => clearInterval(interval);
+  }, [isAuthenticated]);
+
+  const handleManualSync = async () => {
+    setIsLiveSyncing(true);
+    try {
+      const freshData = await StockAPI.getAllStock();
+      if (freshData && Array.isArray(freshData)) {
+        setItems(freshData);
+        localStorage.setItem('techstock_modular_inventory', JSON.stringify(freshData));
+        setLastSyncTime(new Date());
+        showToast('✓ Data stok berhasil disinkronisasi dengan server');
+      }
+    } catch {
+      showToast('⚠️ Gagal sinkronisasi data dengan server');
+    } finally {
+      setIsLiveSyncing(false);
+    }
+  };
+
   const getFilteredItems = () => {
     let result = [...items];
 
@@ -258,7 +322,12 @@ function App() {
     };
     
     setItems(newItems);
-    await StockAPI.updateQuantity(id, delta);
+    await StockAPI.updateQuantity(id, delta, {
+      actor: 'Admin Gudang',
+      reference: 'STEPPER-TABLE',
+      notes: delta > 0 ? `Penambahan cepat via tombol tabel (+${delta} unit)` : `Pengurangan cepat via tombol tabel (${delta} unit)`,
+      location: item.location || 'Gudang Utama'
+    });
     showToast(`Stok "${item.name}" bertambah menjadi ${newQty}`);
   };
 
@@ -366,14 +435,20 @@ function App() {
     showToast(isEdit ? `Data "${unitObj.name}" diperbarui` : `Unit baru "${unitObj.name}" berhasil ditambahkan`);
   };
 
-  const handleDelete = async (id) => {
+  const handleDelete = (id) => {
     const item = items.find(u => u.id === id);
     if (!item) return;
-    if (!window.confirm(`Hapus "${item.name}" dari daftar stok berjalan?`)) return;
+    setDeleteTargetItem(item);
+  };
+
+  const confirmDeleteItem = async () => {
+    if (!deleteTargetItem) return;
+    const item = deleteTargetItem;
+    setDeleteTargetItem(null);
 
     pushHistory(`Hapus unit "${item.name}"`);
-    setItems(items.filter(u => u.id !== id));
-    await StockAPI.deleteUnit(id);
+    setItems(items.filter(u => u.id !== item.id));
+    await StockAPI.deleteUnit(item.id);
     showToast(`Unit "${item.name}" telah dihapus`);
   };
 
@@ -464,6 +539,40 @@ function App() {
             <RotateCcw size={15} />
             <span>Undo</span>
             {history.length > 0 && <span className="undo-badge">{history.length}</span>}
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={handleManualSync}
+            disabled={isLiveSyncing}
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '0.35rem',
+              background: '#F0FDF4',
+              border: '1px solid #BBF7D0',
+              color: '#15803D',
+              padding: '0.35rem 0.65rem',
+              borderRadius: '8px',
+              fontSize: '0.76rem',
+              fontWeight: 600,
+              cursor: 'pointer'
+            }}
+            title={`Live Sync Aktif (Klik untuk sinkronisasi manual)\nTerakhir sinkron: ${lastSyncTime.toLocaleTimeString()}`}
+          >
+            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
+            <RefreshCw size={12} className={isLiveSyncing ? 'spin' : ''} />
+            <span>{isLiveSyncing ? 'Sinkron...' : 'Live'}</span>
+          </button>
+          <button
+            type="button"
+            className="btn btn-secondary"
+            onClick={() => setShowMasterModal(true)}
+            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #CBD5E1' }}
+            title="Kelola Master Data Customer (Klien) dan Tim Sales"
+          >
+            <Building2 size={16} color="#0284C7" />
+            <span>Master Data</span>
           </button>
           <button
             type="button"
@@ -618,6 +727,24 @@ function App() {
         onClose={() => setShowImportModal(false)}
         currentItems={items}
         onImportSuccess={handleImportSuccess}
+      />
+
+      <MasterDataModal
+        show={showMasterModal}
+        onClose={() => setShowMasterModal(false)}
+        items={items}
+        onDataChanged={handleManualSync}
+      />
+
+      <ConfirmDialog
+        show={!!deleteTargetItem}
+        title="Hapus Barang?"
+        message={`Apakah Anda yakin ingin menghapus "${deleteTargetItem?.name}" (${deleteTargetItem?.partNumber || '-'}) dari daftar stok berjalan? Tindakan ini dapat dibatalkan melalui tombol Undo.`}
+        confirmText="Ya, Hapus Barang"
+        cancelText="Batal"
+        type="danger"
+        onConfirm={confirmDeleteItem}
+        onClose={() => setDeleteTargetItem(null)}
       />
 
       {toastMessage && (

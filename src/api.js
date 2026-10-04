@@ -166,13 +166,13 @@ const StockAPI = {
     return local ? JSON.parse(local) : null;
   },
 
-  async updateQuantity(id, delta) {
+  async updateQuantity(id, delta, meta = {}) {
     if (this.isServerAvailable) {
       try {
         const res = await fetch('/api/stock/update-qty', {
           method: 'POST',
           headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify({ id, delta })
+          body: JSON.stringify({ id, delta, ...meta })
         });
         if (res.ok) return await res.json();
         if (res.status === 401) this.handleUnauthorized();
@@ -184,11 +184,32 @@ const StockAPI = {
     const items = await this.getAllStock();
     const target = items ? items.find(u => u.id === id) : null;
     if (target) {
-      const newQty = Math.max(0, target.qty + delta);
+      const oldQty = target.qty || 0;
+      const newQty = Math.max(0, oldQty + delta);
+      const actualDelta = newQty - oldQty;
       target.qty = newQty;
       target.status = newQty > 0 ? 'ready' : 'sold';
       target.updatedAt = new Date().toISOString();
       localStorage.setItem('techstock_modular_inventory', JSON.stringify(items));
+
+      // Catat mutasi di local jika offline
+      if (actualDelta !== 0) {
+        this.recordMovement({
+          itemId: target.id,
+          partNumber: target.partNumber || '-',
+          itemName: target.name || 'Unit Tanpa Nama',
+          brand: target.brand || 'DELL',
+          type: meta.type || (actualDelta > 0 ? 'IN' : 'OUT'),
+          amount: Math.abs(actualDelta),
+          previousQty: oldQty,
+          newQty,
+          location: meta.location || target.location || 'Gudang Utama',
+          actor: meta.actor || 'Admin Gudang',
+          reference: meta.reference || 'QUICK-STEPPER',
+          notes: meta.notes || (actualDelta > 0 ? `Penyesuaian stok (+${actualDelta})` : `Penyesuaian stok (${actualDelta})`)
+        }).catch(() => {});
+      }
+
       return target;
     }
     return null;
@@ -240,14 +261,14 @@ const StockAPI = {
     return true;
   },
 
-  async saveAll(items) {
+  async saveAll(items, mode = 'merge') {
     localStorage.setItem('techstock_modular_inventory', JSON.stringify(items));
     if (this.isServerAvailable) {
       try {
         const res = await fetch('/api/stock/save-all', {
           method: 'POST',
           headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
-          body: JSON.stringify(items)
+          body: JSON.stringify({ items, mode })
         });
         if (res.status === 401) this.handleUnauthorized();
       } catch (err) {
@@ -448,10 +469,11 @@ const StockAPI = {
     return null;
   },
 
-  async getCustomers() {
+  async getCustomers(search = '') {
     if (this.isServerAvailable) {
       try {
-        const res = await fetch('/api/stock/customers', {
+        const query = search ? `?search=${encodeURIComponent(search)}` : '';
+        const res = await fetch(`/api/stock/customers${query}`, {
           headers: this.getAuthHeaders()
         });
         if (res.ok) return await res.json();
@@ -461,6 +483,50 @@ const StockAPI = {
       }
     }
     return [];
+  },
+
+  async createCustomer(data) {
+    if (this.isServerAvailable) {
+      const res = await fetch('/api/stock/customers', {
+        method: 'POST',
+        headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(data)
+      });
+      if (res.ok) return await res.json();
+      if (res.status === 401) this.handleUnauthorized();
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Gagal menambahkan customer');
+    }
+    throw new Error('Server backend tidak aktif');
+  },
+
+  async updateCustomer(id, data) {
+    if (this.isServerAvailable) {
+      const res = await fetch(`/api/stock/customers/${id}`, {
+        method: 'PUT',
+        headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify(data)
+      });
+      if (res.ok) return await res.json();
+      if (res.status === 401) this.handleUnauthorized();
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Gagal memperbarui customer');
+    }
+    throw new Error('Server backend tidak aktif');
+  },
+
+  async deleteCustomer(id) {
+    if (this.isServerAvailable) {
+      const res = await fetch(`/api/stock/customers/${id}`, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders()
+      });
+      if (res.ok) return true;
+      if (res.status === 401) this.handleUnauthorized();
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Gagal menghapus customer');
+    }
+    throw new Error('Server backend tidak aktif');
   },
 
   async getSales() {
@@ -481,6 +547,50 @@ const StockAPI = {
       }
     }
     return DEFAULT_SALES;
+  },
+
+  async addSales(name) {
+    if (this.isServerAvailable) {
+      const res = await fetch('/api/stock/sales', {
+        method: 'POST',
+        headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ name })
+      });
+      if (res.ok) return await res.json();
+      if (res.status === 401) this.handleUnauthorized();
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Gagal menambahkan sales');
+    }
+    throw new Error('Server backend tidak aktif');
+  },
+
+  async saveSales(salesList) {
+    if (this.isServerAvailable) {
+      const res = await fetch('/api/stock/sales', {
+        method: 'PUT',
+        headers: this.getAuthHeaders({ 'Content-Type': 'application/json' }),
+        body: JSON.stringify({ salesList })
+      });
+      if (res.ok) return await res.json();
+      if (res.status === 401) this.handleUnauthorized();
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Gagal menyimpan sales');
+    }
+    throw new Error('Server backend tidak aktif');
+  },
+
+  async deleteSales(name) {
+    if (this.isServerAvailable) {
+      const res = await fetch(`/api/stock/sales/${encodeURIComponent(name)}`, {
+        method: 'DELETE',
+        headers: this.getAuthHeaders()
+      });
+      if (res.ok) return await res.json();
+      if (res.status === 401) this.handleUnauthorized();
+      const errJson = await res.json().catch(() => ({}));
+      throw new Error(errJson.error || 'Gagal menghapus sales');
+    }
+    throw new Error('Server backend tidak aktif');
   }
 };
 

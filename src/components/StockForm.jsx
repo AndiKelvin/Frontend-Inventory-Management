@@ -26,6 +26,7 @@ const StockForm = ({ show, item, onClose, onSave }) => {
   const [salesQtyInput, setSalesQtyInput] = useState(1);
   const [projectNoteInput, setProjectNoteInput] = useState('');
   const [mappingError, setMappingError] = useState('');
+  const [formError, setFormError] = useState('');
 
   useEffect(() => {
     if (item) {
@@ -59,6 +60,7 @@ const StockForm = ({ show, item, onClose, onSave }) => {
     setSalesQtyInput(1);
     setProjectNoteInput('');
     setMappingError('');
+    setFormError('');
   }, [item, show]);
 
   if (!show) return null;
@@ -113,9 +115,10 @@ const StockForm = ({ show, item, onClose, onSave }) => {
   const handleSubmit = (e) => {
     e.preventDefault();
     if (totalMapped > currentTotalQty) {
-      alert(`Total unit yang di-mapping (${totalMapped}) melebihi jumlah stok tersedia (${currentTotalQty}). Sesuaikan kembali mapping sales.`);
+      setFormError(`Total unit yang di-mapping (${totalMapped}) melebihi jumlah stok tersedia (${currentTotalQty}). Sesuaikan kembali mapping sales.`);
       return;
     }
+    setFormError('');
 
     const combinedNotes = formatNotesAndMapping(mappings, keterangan);
     const unitObj = {
@@ -139,6 +142,12 @@ const StockForm = ({ show, item, onClose, onSave }) => {
         </div>
 
         <form className="modal-body" onSubmit={handleSubmit}>
+          {formError && (
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', background: '#FEF2F2', border: '1px solid #FECACA', color: '#DC2626', padding: '8px 12px', borderRadius: '8px', fontSize: '0.8rem', marginBottom: '1rem' }}>
+              <AlertCircle size={16} />
+              <span>{formError}</span>
+            </div>
+          )}
           <div className="form-row-2">
             <div className="form-group">
               <label>Brand / Merk *</label>

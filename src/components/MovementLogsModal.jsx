@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { X, History, Search, Download, ArrowDownRight, ArrowUpRight, Tag, SlidersHorizontal, RefreshCw, Trash2, Edit, Save, Check, Calendar, Package, ChevronDown, Building2 } from 'lucide-react';
+import { X, History, Search, Download, ArrowDownRight, ArrowUpRight, Tag, SlidersHorizontal, RefreshCw, Trash2, Edit, Save, Check, Calendar, Package, ChevronDown, Building2, AlertCircle } from 'lucide-react';
 import StockAPI from '../api';
+import ConfirmDialog from './ConfirmDialog';
 
 const toLocalISOString = (dateVal) => {
   if (!dateVal) return '';
@@ -21,6 +22,8 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
   const [search, setSearch] = useState('');
   const [typeFilter, setTypeFilter] = useState('all');
   const [deletingId, setDeletingId] = useState(null);
+  const [deleteConfirmItem, setDeleteConfirmItem] = useState(null);
+  const [modalFeedback, setModalFeedback] = useState(null);
 
   // State untuk Edit Catatan History
   const [editingMovement, setEditingMovement] = useState(null);
@@ -150,25 +153,36 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
         );
       }
       setEditingMovement(null);
+      setModalFeedback({ type: 'success', text: '✓ Catatan History berhasil diperbarui.' });
+      setTimeout(() => setModalFeedback(null), 3000);
     } catch (err) {
       console.error('Gagal memperbarui catatan History:', err);
-      alert('Gagal memperbarui catatan History.');
+      setModalFeedback({ type: 'error', text: 'Gagal memperbarui catatan History.' });
+      setTimeout(() => setModalFeedback(null), 3000);
     } finally {
       setSavingEdit(false);
     }
   };
 
-  const handleDelete = async (item) => {
-    const confirmMsg = `Hapus catatan History "${item.itemName || 'ini'}" (${item.type} ${item.amount} unit)?`;
-    if (!window.confirm(confirmMsg)) return;
+  const handleDelete = (item) => {
+    setDeleteConfirmItem(item);
+  };
+
+  const confirmDeleteLog = async () => {
+    if (!deleteConfirmItem) return;
+    const item = deleteConfirmItem;
+    setDeleteConfirmItem(null);
 
     setDeletingId(item.id);
     try {
       await StockAPI.deleteMovement(item.id);
       setMovements((prev) => prev.filter((m) => m.id !== item.id));
+      setModalFeedback({ type: 'success', text: '✓ Catatan History berhasil dihapus.' });
+      setTimeout(() => setModalFeedback(null), 3000);
     } catch (err) {
       console.error('Gagal menghapus catatan History:', err);
-      alert('Gagal menghapus catatan History.');
+      setModalFeedback({ type: 'error', text: 'Gagal menghapus catatan History.' });
+      setTimeout(() => setModalFeedback(null), 3000);
     } finally {
       setDeletingId(null);
     }
@@ -1028,6 +1042,42 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
           </div>
         </div>
       )}
+
+      {/* Modal Feedback Toast */}
+      {modalFeedback && (
+        <div style={{
+          position: 'fixed',
+          bottom: '20px',
+          right: '20px',
+          zIndex: 9999,
+          background: modalFeedback.type === 'error' ? '#FEF2F2' : '#F0FDF4',
+          border: `1px solid ${modalFeedback.type === 'error' ? '#FECACA' : '#BBF7D0'}`,
+          color: modalFeedback.type === 'error' ? '#DC2626' : '#15803D',
+          padding: '10px 16px',
+          borderRadius: '10px',
+          fontSize: '0.85rem',
+          fontWeight: 600,
+          boxShadow: '0 10px 15px -3px rgba(0,0,0,0.1)',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px'
+        }}>
+          {modalFeedback.type === 'error' ? <AlertCircle size={16} /> : <Check size={16} />}
+          <span>{modalFeedback.text}</span>
+        </div>
+      )}
+
+      {/* Confirm Dialog Hapus History */}
+      <ConfirmDialog
+        show={!!deleteConfirmItem}
+        title="Hapus Catatan History?"
+        message={`Apakah Anda yakin ingin menghapus catatan mutasi "${deleteConfirmItem?.itemName || 'Unit'}" (${deleteConfirmItem?.type} ${deleteConfirmItem?.amount} unit)? Tindakan ini akan menghapus data audit mutasi secara permanen.`}
+        confirmText="Ya, Hapus Catatan"
+        cancelText="Batal"
+        type="danger"
+        onConfirm={confirmDeleteLog}
+        onClose={() => setDeleteConfirmItem(null)}
+      />
     </div>
   );
 };
