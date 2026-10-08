@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, Save, MapPin, Monitor, Wrench, AlertTriangle, ArrowRight, Check, UserCheck, PlusCircle, Info, Search, ChevronDown, Building2 } from 'lucide-react';
-import { getBookedQty, parseNotesAndMapping, formatNotesAndMapping } from '../utils/stockUtils';
-import StockAPI from '../api';
+import { getBookedQty, parseNotesAndMapping, formatNotesAndMapping } from '../../utils/stockUtils';
+import StockAPI from '../../api';
 
 /**
  * Helper untuk mengurai akumulasi stok per lokasi/kategori dari data item
@@ -450,8 +450,8 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
         <form className="modal-body" onSubmit={handleSubmit}>
           {/* Ringkasan Perangkat */}
           <div style={{
-            background: '#F8FAFC',
-            border: '1px solid #E2E8F0',
+            background: 'var(--bg-subtle)',
+            border: '1px solid var(--border-default)',
             borderRadius: '8px',
             padding: '0.85rem',
             marginBottom: '1.1rem'
@@ -463,44 +463,37 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
                     {item.brand}
                   </span>
                   {isSpecialPart && (
-                    <span style={{
-                      fontSize: '0.68rem',
-                      background: '#FEF3C7',
-                      color: '#B45309',
-                      padding: '2px 6px',
-                      borderRadius: '4px',
-                      fontWeight: 700
-                    }}>
+                    <span className="badge-status-booking" style={{ padding: '2px 6px' }}>
                       Khusus Part 365K5PA (4 Button)
                     </span>
                   )}
                 </div>
-                <div style={{ fontWeight: 700, fontSize: '0.92rem', color: '#0F172A', marginTop: '2px' }}>
+                <div style={{ fontWeight: 700, fontSize: '0.92rem', color: 'var(--text-primary)', marginTop: '2px' }}>
                   {item.name || '-'}
                 </div>
-                <div style={{ fontSize: '0.78rem', color: '#64748B', marginTop: '2px', fontFamily: 'monospace' }}>
-                  Part Number: <strong style={{ color: '#1E293B' }}>{item.partNumber || '-'}</strong>
+                <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '2px', fontFamily: 'monospace' }}>
+                  Part Number: <strong style={{ color: 'var(--text-primary)' }}>{item.partNumber || '-'}</strong>
                 </div>
               </div>
 
               {/* Perhitungan Stok */}
               <div style={{
                 textAlign: 'right',
-                background: '#FFFFFF',
-                border: '1px solid #CBD5E1',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-default)',
                 borderRadius: '6px',
                 padding: '0.4rem 0.75rem',
                 minWidth: '115px'
               }}>
-                <div style={{ fontSize: '0.68rem', color: '#64748B', textTransform: 'uppercase', fontWeight: 600 }}>
+                <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600 }}>
                   Perubahan Stok
                 </div>
                 <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '0.35rem', marginTop: '3px' }}>
-                  <span style={{ fontWeight: 700, color: '#334155', fontSize: '1.05rem' }}>{currentQty}</span>
-                  <ArrowRight size={13} color="#94A3B8" />
+                  <span style={{ fontWeight: 700, color: 'var(--text-primary)', fontSize: '1.05rem' }}>{currentQty}</span>
+                  <ArrowRight size={13} color="var(--text-muted)" />
                   <span style={{
                     fontWeight: 800,
-                    color: isAdd ? '#16A34A' : (resultingQty === 0 ? '#EF4444' : '#2563EB'),
+                    color: isAdd ? 'var(--ready-green)' : (resultingQty === 0 ? 'var(--red-critical)' : 'var(--dell-primary)'),
                     fontSize: '1.15rem'
                   }}>
                     {resultingQty}
@@ -512,7 +505,7 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
 
           {/* Bagian Pilihan Button (3 Button Umum / 4 Button Khusus 365K5PA) */}
           <div style={{ marginBottom: '1.1rem' }}>
-            <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 600, color: '#334155', marginBottom: '0.55rem' }}>
+            <label style={{ display: 'block', fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.55rem' }}>
               {isAdd ? 'Pilih Kategori Alokasi Penambahan:' : 'Pilih Kategori Alokasi Pengurangan:'}
             </label>
 
@@ -526,51 +519,23 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
               {/* Button 1: Lokasi */}
               <button
                 type="button"
+                className={`reduce-category-btn ${activeCategory === 'lokasi' ? 'active-lokasi' : ''}`}
                 onClick={() => setActiveCategory('lokasi')}
-                style={{
-                  padding: '0.55rem 0.35rem',
-                  border: activeCategory === 'lokasi' ? '2px solid #2563EB' : '1px solid #CBD5E1',
-                  background: activeCategory === 'lokasi' ? '#EFF6FF' : '#FFFFFF',
-                  color: activeCategory === 'lokasi' ? '#1D4ED8' : '#475569',
-                  borderRadius: '8px',
-                  fontWeight: 700,
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '0.2rem',
-                  transition: 'all 0.15s ease'
-                }}
               >
-                <MapPin size={16} color={activeCategory === 'lokasi' ? '#2563EB' : '#64748B'} />
+                <MapPin size={16} />
                 <span>Lokasi</span>
               </button>
 
               {/* Button 2: Demo */}
               <button
                 type="button"
+                className={`reduce-category-btn ${activeCategory === 'demo' ? 'active-demo' : ''}`}
                 onClick={() => setActiveCategory('demo')}
-                style={{
-                  padding: '0.55rem 0.35rem',
-                  border: activeCategory === 'demo' ? '2px solid #D97706' : '1px solid #CBD5E1',
-                  background: activeCategory === 'demo' ? '#FFFBEB' : '#FFFFFF',
-                  color: activeCategory === 'demo' ? '#B45309' : '#475569',
-                  borderRadius: '8px',
-                  fontWeight: 700,
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '0.2rem',
-                  transition: 'all 0.15s ease'
-                }}
               >
-                <Monitor size={16} color={activeCategory === 'demo' ? '#D97706' : '#64748B'} />
+                <Monitor size={16} />
                 <span>Demo</span>
                 {breakdown.demo > 0 && (
-                  <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#D97706' }}>
+                  <span className="reduce-btn-badge">
                     ({breakdown.demo})
                   </span>
                 )}
@@ -579,27 +544,13 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
               {/* Button 3: Service */}
               <button
                 type="button"
+                className={`reduce-category-btn ${activeCategory === 'service' ? 'active-service' : ''}`}
                 onClick={() => setActiveCategory('service')}
-                style={{
-                  padding: '0.55rem 0.35rem',
-                  border: activeCategory === 'service' ? '2px solid #7C3AED' : '1px solid #CBD5E1',
-                  background: activeCategory === 'service' ? '#F5F3FF' : '#FFFFFF',
-                  color: activeCategory === 'service' ? '#6D28D9' : '#475569',
-                  borderRadius: '8px',
-                  fontWeight: 700,
-                  fontSize: '0.82rem',
-                  cursor: 'pointer',
-                  display: 'flex',
-                  flexDirection: 'column',
-                  alignItems: 'center',
-                  gap: '0.2rem',
-                  transition: 'all 0.15s ease'
-                }}
               >
-                <Wrench size={16} color={activeCategory === 'service' ? '#7C3AED' : '#64748B'} />
+                <Wrench size={16} />
                 <span>Service</span>
                 {breakdown.service > 0 && (
-                  <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#7C3AED' }}>
+                  <span className="reduce-btn-badge">
                     ({breakdown.service})
                   </span>
                 )}
@@ -609,26 +560,12 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
               {isSpecialPart && (
                 <button
                   type="button"
+                  className={`reduce-category-btn ${activeCategory === 'klaim_doa' ? 'active-doa' : ''}`}
                   onClick={() => setActiveCategory('klaim_doa')}
-                  style={{
-                    padding: '0.55rem 0.35rem',
-                    border: activeCategory === 'klaim_doa' ? '2px solid #DC2626' : '1px solid #CBD5E1',
-                    background: activeCategory === 'klaim_doa' ? '#FEF2F2' : '#FFFFFF',
-                    color: activeCategory === 'klaim_doa' ? '#B91C1C' : '#475569',
-                    borderRadius: '8px',
-                    fontWeight: 700,
-                    fontSize: '0.82rem',
-                    cursor: 'pointer',
-                    display: 'flex',
-                    flexDirection: 'column',
-                    alignItems: 'center',
-                    gap: '0.2rem',
-                    transition: 'all 0.15s ease'
-                  }}
                 >
-                  <AlertTriangle size={16} color={activeCategory === 'klaim_doa' ? '#DC2626' : '#64748B'} />
+                  <AlertTriangle size={16} />
                   <span>Klaim DOA</span>
-                  <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#DC2626' }}>
+                  <span className="reduce-btn-badge">
                     ({breakdown.klaimDoa})
                   </span>
                 </button>
@@ -662,34 +599,13 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
                           key={wh.key}
                           type="button"
                           onClick={() => setSelectedLocation(wh.key)}
-                          style={{
-                            padding: '0.5rem 0.25rem',
-                            borderRadius: '6px',
-                            border: isSelected ? '2px solid #2563EB' : '1px solid #CBD5E1',
-                            background: isSelected ? '#2563EB' : '#FFFFFF',
-                            color: isSelected ? '#FFFFFF' : (hasStock ? '#334155' : '#94A3B8'),
-                            fontWeight: isSelected ? 700 : 500,
-                            fontSize: '0.74rem',
-                            cursor: 'pointer',
-                            display: 'flex',
-                            flexDirection: 'column',
-                            alignItems: 'center',
-                            justifyContent: 'center',
-                            gap: '0.15rem',
-                            textAlign: 'center',
-                            transition: 'all 0.15s ease'
-                          }}
+                          className={`warehouse-btn ${isSelected ? 'selected' : ''}`}
                         >
                           <div style={{ display: 'flex', alignItems: 'center', gap: '0.2rem' }}>
                             {isSelected && <Check size={12} strokeWidth={3} />}
                             <span style={{ lineHeight: 1.2 }}>{wh.label}</span>
                           </div>
-                          <span style={{
-                            fontSize: '0.66rem',
-                            fontWeight: 600,
-                            opacity: isSelected ? 0.95 : 0.8,
-                            color: isSelected ? '#FFFFFF' : (hasStock ? '#16A34A' : '#94A3B8')
-                          }}>
+                          <span className={`warehouse-count ${hasStock ? 'has-stock' : 'empty-stock'}`}>
                             ({wh.count} unit)
                           </span>
                         </button>
@@ -1079,22 +995,9 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
 
                 {/* Dropdown Hasil Pencarian Sales */}
                 {!isAdd && showSalesDropdown && (
-                  <div style={{
-                    position: 'absolute',
-                    top: '100%',
-                    left: 0,
-                    right: 0,
-                    maxHeight: '160px',
-                    overflowY: 'auto',
-                    background: '#FFFFFF',
-                    border: '1px solid #CBD5E1',
-                    borderRadius: '6px',
-                    boxShadow: '0 4px 12px rgba(0,0,0,0.1)',
-                    zIndex: 100,
-                    marginTop: '3px'
-                  }}>
+                  <div className="modal-dropdown-menu">
                     {filteredSales.length === 0 ? (
-                      <div style={{ padding: '6px 10px', fontSize: '0.74rem', color: '#94A3B8' }}>
+                      <div style={{ padding: '6px 10px', fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                         Tekan enter/simpan untuk sales baru ini
                       </div>
                     ) : (
@@ -1105,20 +1008,15 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
                             setActorInput(salesName);
                             setShowSalesDropdown(false);
                           }}
+                          className={`modal-dropdown-item ${actorInput === salesName ? 'selected' : ''}`}
                           style={{
                             padding: '6px 10px',
                             fontSize: '0.78rem',
                             cursor: 'pointer',
-                            borderBottom: '1px solid #F8FAFC',
-                            color: '#1E293B',
-                            fontWeight: actorInput === salesName ? 700 : 500,
-                            background: actorInput === salesName ? '#EFF6FF' : '#FFFFFF',
                             display: 'flex',
                             alignItems: 'center',
                             gap: '5px'
                           }}
-                          onMouseEnter={(e) => { e.currentTarget.style.background = '#F1F5F9'; }}
-                          onMouseLeave={(e) => { e.currentTarget.style.background = actorInput === salesName ? '#EFF6FF' : '#FFFFFF'; }}
                         >
                           <span>👤</span>
                           <span>{salesName}</span>
@@ -1238,22 +1136,9 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
 
               {/* Dropdown Pencarian Customer Real-Time */}
               {!isAdd && showCustomerDropdown && (
-                <div style={{
-                  position: 'absolute',
-                  top: '100%',
-                  left: 0,
-                  right: 0,
-                  maxHeight: '210px',
-                  overflowY: 'auto',
-                  background: '#FFFFFF',
-                  border: '1px solid #CBD5E1',
-                  borderRadius: '6px',
-                  boxShadow: '0 6px 16px rgba(0,0,0,0.12)',
-                  zIndex: 100,
-                  marginTop: '3px'
-                }}>
+                <div className="modal-dropdown-menu" style={{ maxHeight: '210px' }}>
                   {filteredCustomers.length === 0 ? (
-                    <div style={{ padding: '8px 12px', fontSize: '0.75rem', color: '#94A3B8' }}>
+                    <div style={{ padding: '8px 12px', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
                       Tidak ditemukan perusahaan &quot;{notesInput}&quot; (akan disimpan sebagai nama baru)
                     </div>
                   ) : (
@@ -1265,21 +1150,18 @@ const ReduceStockModal = ({ show, item, mode = 'reduce', onClose, onConfirm }) =
                           setSelectedCustomerDetail(c);
                           setShowCustomerDropdown(false);
                         }}
+                        className={`modal-dropdown-item ${notesInput === c.companyName ? 'selected' : ''}`}
                         style={{
                           padding: '7px 10px',
-                          cursor: 'pointer',
-                          borderBottom: '1px solid #F1F5F9',
-                          background: notesInput === c.companyName ? '#EFF6FF' : '#FFFFFF'
+                          cursor: 'pointer'
                         }}
-                        onMouseEnter={(e) => { e.currentTarget.style.background = '#F8FAFC'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.background = notesInput === c.companyName ? '#EFF6FF' : '#FFFFFF'; }}
                       >
-                        <div style={{ fontSize: '0.78rem', fontWeight: 600, color: '#0F172A', display: 'flex', alignItems: 'center', gap: '5px' }}>
-                          <Building2 size={13} color="#2563EB" />
+                        <div style={{ fontSize: '0.78rem', fontWeight: 600, color: 'var(--text-primary)', display: 'flex', alignItems: 'center', gap: '5px' }}>
+                          <Building2 size={13} color="var(--dell-primary)" />
                           <span>{c.companyName}</span>
                         </div>
                         {(c.address || c.contactName || c.phone) && (
-                          <div style={{ fontSize: '0.69rem', color: '#64748B', marginTop: '2px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
+                          <div style={{ fontSize: '0.69rem', color: 'var(--text-muted)', marginTop: '2px', display: 'flex', flexWrap: 'wrap', gap: '6px' }}>
                             {c.contactName && <span>👤 PIC: {c.contactName}</span>}
                             {c.phone && <span>📞 {c.phone}</span>}
                             {c.address && <span>📍 {c.address.length > 40 ? `${c.address.substring(0, 40)}...` : c.address}</span>}

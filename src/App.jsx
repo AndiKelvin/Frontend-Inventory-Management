@@ -1,16 +1,18 @@
-import React, { useState, useEffect } from 'react';
-import { PlusCircle, Search, Layers, Laptop, Archive, AlertTriangle, XCircle, RotateCcw, Check, FileSpreadsheet, History, Upload, BookmarkCheck, Lock, Building2, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { PlusCircle, Search, Layers, Laptop, Archive, AlertTriangle, XCircle, RotateCcw, Check, FileSpreadsheet, History, Upload, BookmarkCheck, Lock, Building2, RefreshCw, ChevronDown, Sun, Moon } from 'lucide-react';
 import StockAPI from './api';
-import Dashboard from './components/Dashboard';
-import StockList from './components/StockList';
-import StockForm from './components/StockForm';
-import ReduceStockModal from './components/ReduceStockModal';
-import ExportBrandModal from './components/ExportBrandModal';
-import MovementLogsModal from './components/MovementLogsModal';
-import ImportExcelModal from './components/ImportExcelModal';
-import MasterDataModal from './components/MasterDataModal';
-import ConfirmDialog from './components/ConfirmDialog';
-import PinLockScreen from './components/PinLockScreen';
+import {
+  Dashboard,
+  StockList,
+  StockForm,
+  ReduceStockModal,
+  ExportBrandModal,
+  MovementLogsModal,
+  ImportExcelModal,
+  MasterDataModal,
+  ConfirmDialog,
+  PinLockScreen
+} from './components';
 import { getBookedQty } from './utils/stockUtils';
 import {
   exportSmbHpJpg,
@@ -32,6 +34,34 @@ function App() {
   const [searchQuery, setSearchQuery] = useState('');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [sortFilter, setSortFilter] = useState('stock-desc');
+
+  // Tema Tampilan (Dark Mode / Light Mode)
+  const [theme, setTheme] = useState(() => {
+    try {
+      const savedTheme = localStorage.getItem('techstock_theme');
+      if (savedTheme === 'dark' || savedTheme === 'light') {
+        return savedTheme;
+      }
+      return window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+    } catch {
+      return 'light';
+    }
+  });
+
+  useEffect(() => {
+    document.documentElement.setAttribute('data-theme', theme);
+    try {
+      localStorage.setItem('techstock_theme', theme);
+    } catch (e) {
+      console.error(e);
+    }
+  }, [theme]);
+
+  const toggleTheme = () => {
+    const nextTheme = theme === 'dark' ? 'light' : 'dark';
+    setTheme(nextTheme);
+    showToast(nextTheme === 'dark' ? '🌙 Mode Gelap (Dark Mode) aktif' : '☀️ Mode Terang (Light Mode) aktif');
+  };
   
   const [showForm, setShowForm] = useState(false);
   const [editingItem, setEditingItem] = useState(null);
@@ -58,6 +88,25 @@ function App() {
   const [toastMessage, setToastMessage] = useState(null);
   const [isExporting, setIsExporting] = useState(false);
 
+  // Dropdown Export Menu
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const exportDropdownRef = useRef(null);
+
+  // Tutup dropdown saat klik di luar
+  useEffect(() => {
+    const handleClickOutside = (e) => {
+      if (exportDropdownRef.current && !exportDropdownRef.current.contains(e.target)) {
+        setShowExportDropdown(false);
+      }
+    };
+    if (showExportDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showExportDropdown]);
+
   const showToast = (msg) => {
     setToastMessage(msg);
     setTimeout(() => setToastMessage(null), 3800);
@@ -67,7 +116,9 @@ function App() {
   useEffect(() => {
     const handleGlobalKeyDown = (e) => {
       if (e.key === 'Escape') {
-        if (deleteTargetItem) {
+        if (showExportDropdown) {
+          setShowExportDropdown(false);
+        } else if (deleteTargetItem) {
           setDeleteTargetItem(null);
         } else if (showMovementLogs || stockModalItem) {
           return;
@@ -84,7 +135,7 @@ function App() {
     };
     window.addEventListener('keydown', handleGlobalKeyDown);
     return () => window.removeEventListener('keydown', handleGlobalKeyDown);
-  }, [deleteTargetItem, showMovementLogs, stockModalItem, showForm, showMasterModal, exportModalType, showImportModal]);
+  }, [deleteTargetItem, showMovementLogs, stockModalItem, showForm, showMasterModal, exportModalType, showImportModal, showExportDropdown]);
 
   const handleExportExcel = async () => {
     try {
@@ -192,6 +243,65 @@ function App() {
       window.removeEventListener('techstock-unauthorized', handleUnauthorizedEvent);
     };
   }, []);
+
+  const handleLogout = useCallback(async (msg = '🔒 Sesi telah dikunci') => {
+    await StockAPI.logout();
+    setIsAuthenticated(false);
+    showToast(msg);
+  }, []);
+
+  // Auto-Lock Sesi Otomatis (Inactivity Timer 10 Menit = 600.000 ms)
+  useEffect(() => {
+    if (!isAuthenticated) return;
+
+    const INACTIVITY_TIMEOUT_MS = 10 * 60 * 1000;
+    let lastActivity = Date.now();
+    let timeoutId;
+
+    const lockDueToInactivity = () => {
+      handleLogout('🔒 Sesi terkunci otomatis karena tidak ada aktivitas selama 10 menit');
+    };
+
+    const scheduleTimer = () => {
+      clearTimeout(timeoutId);
+      const elapsed = Date.now() - lastActivity;
+      const remaining = Math.max(0, INACTIVITY_TIMEOUT_MS - elapsed);
+      timeoutId = setTimeout(() => {
+        lockDueToInactivity();
+      }, remaining);
+    };
+
+    const handleUserActivity = () => {
+      const now = Date.now();
+      if (now - lastActivity > 1000) {
+        lastActivity = now;
+        scheduleTimer();
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === 'visible') {
+        const elapsed = Date.now() - lastActivity;
+        if (elapsed >= INACTIVITY_TIMEOUT_MS) {
+          lockDueToInactivity();
+        } else {
+          scheduleTimer();
+        }
+      }
+    };
+
+    scheduleTimer();
+
+    const events = ['mousedown', 'keydown', 'scroll', 'touchstart', 'click'];
+    events.forEach((ev) => window.addEventListener(ev, handleUserActivity, { passive: true }));
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      clearTimeout(timeoutId);
+      events.forEach((ev) => window.removeEventListener(ev, handleUserActivity));
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, [isAuthenticated, handleLogout]);
 
   // Fetch data hanya jika pengguna terautentikasi
   useEffect(() => {
@@ -489,12 +599,6 @@ function App() {
     return 0;
   };
 
-  const handleLogout = async () => {
-    await StockAPI.logout();
-    setIsAuthenticated(false);
-    showToast('🔒 Sesi telah dikunci');
-  };
-
   return (
     <>
       <div
@@ -519,115 +623,177 @@ function App() {
           </div>
         </div>
         <div className="header-actions">
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleLogout}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #CBD5E1', color: '#475569' }}
-            title="Kunci sesi web (memerlukan PIN 123451 untuk masuk kembali)"
-          >
-            <Lock size={15} color="#DC2626" />
-            <span>Kunci</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary btn-undo"
-            onClick={handleUndo}
-            disabled={history.length === 0}
-            title={history.length > 0 ? `Batalkan: ${history[history.length - 1].desc}` : "Belum ada riwayat perubahan"}
-          >
-            <RotateCcw size={15} />
-            <span>Undo</span>
-            {history.length > 0 && <span className="undo-badge">{history.length}</span>}
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={handleManualSync}
-            disabled={isLiveSyncing}
-            style={{
-              display: 'inline-flex',
-              alignItems: 'center',
-              gap: '0.35rem',
-              background: '#F0FDF4',
-              border: '1px solid #BBF7D0',
-              color: '#15803D',
-              padding: '0.35rem 0.65rem',
-              borderRadius: '8px',
-              fontSize: '0.76rem',
-              fontWeight: 600,
-              cursor: 'pointer'
-            }}
-            title={`Live Sync Aktif (Klik untuk sinkronisasi manual)\nTerakhir sinkron: ${lastSyncTime.toLocaleTimeString()}`}
-          >
-            <span style={{ width: '7px', height: '7px', borderRadius: '50%', background: '#16A34A', display: 'inline-block' }} />
-            <RefreshCw size={12} className={isLiveSyncing ? 'spin' : ''} />
-            <span>{isLiveSyncing ? 'Sinkron...' : 'Live'}</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setShowMasterModal(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #CBD5E1' }}
-            title="Kelola Master Data Customer (Klien) dan Tim Sales"
-          >
-            <Building2 size={16} color="#0284C7" />
-            <span>Master Data</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setShowMovementLogs(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #CBD5E1' }}
-            title="Lihat riwayat History (keluar-masuk barang, serah terima sales, dan audit no PO)"
-          >
-            <History size={16} color="#2563EB" />
-            <span>History</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn-secondary"
-            onClick={() => setShowImportModal(true)}
-            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.4rem', border: '1px solid #CBD5E1' }}
-            title="Import data rekap stok dari file Excel / CSV"
-          >
-            <Upload size={16} color="#059669" />
-            <span>Import Excel</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn-export-excel"
-            onClick={handleExportExcel}
-            disabled={isExporting}
-            title="Export data stok terbaru ke format Excel asli (Rekap Stok Barang HP dan Dell)"
-          >
-            <FileSpreadsheet size={16} />
-            <span>{isExporting ? 'Mengekspor...' : 'Export Excel'}</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn-export-smb"
-            onClick={() => handleOpenExportModal('SMB')}
-            disabled={isExporting}
-            title="Export data stok berjalan ke format resmi SMB (HP / Dell)"
-          >
-            <FileSpreadsheet size={16} />
-            <span>Export SMB</span>
-          </button>
-          <button
-            type="button"
-            className="btn btn-export-distri"
-            onClick={() => handleOpenExportModal('Distri')}
-            disabled={isExporting}
-            title="Export data stok berjalan ke format resmi Distributor (HP / Dell)"
-          >
-            <FileSpreadsheet size={16} />
-            <span>Export Distri</span>
-          </button>
-          <button className="btn btn-primary" onClick={openAddForm}>
-            <PlusCircle size={16} />
+          {/* Kelompok 1: Data & Histori */}
+          <div className="header-group">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setShowMasterModal(true)}
+              title="Kelola Master Data Customer (Klien) dan Tim Sales"
+            >
+              <Building2 size={15} color="#0284C7" />
+              <span>Master Data</span>
+            </button>
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setShowMovementLogs(true)}
+              title="Lihat riwayat History (keluar-masuk barang, serah terima sales, dan audit no PO)"
+            >
+              <History size={15} color="#2563EB" />
+              <span>History</span>
+            </button>
+          </div>
+
+          <div className="header-divider" />
+
+          {/* Kelompok 2: Berkas I/O (Import & Export) */}
+          <div className="header-group">
+            <button
+              type="button"
+              className="btn btn-secondary"
+              onClick={() => setShowImportModal(true)}
+              title="Import data rekap stok dari file Excel / CSV"
+            >
+              <Upload size={15} color="#059669" />
+              <span>Import</span>
+            </button>
+
+            {/* Dropdown 3-in-1 Export */}
+            <div className="export-dropdown-wrapper" ref={exportDropdownRef}>
+              <button
+                type="button"
+                className="btn btn-secondary btn-export-dropdown"
+                onClick={() => setShowExportDropdown(prev => !prev)}
+                disabled={isExporting}
+                title="Pilihan Export Data Stok (Excel Asli, SMB, Distributor)"
+              >
+                <FileSpreadsheet size={15} color="#059669" />
+                <span>{isExporting ? 'Mengekspor...' : 'Export'}</span>
+                <ChevronDown
+                  size={14}
+                  style={{
+                    transform: showExportDropdown ? 'rotate(180deg)' : 'rotate(0deg)',
+                    transition: 'transform 0.2s ease',
+                    color: 'currentColor'
+                  }}
+                />
+              </button>
+
+              {showExportDropdown && (
+                <div className="export-dropdown-menu">
+                  <div className="export-dropdown-header">Format Export</div>
+                  <button
+                    type="button"
+                    className="export-dropdown-item"
+                    onClick={() => {
+                      setShowExportDropdown(false);
+                      handleExportExcel();
+                    }}
+                  >
+                    <div className="export-item-icon excel-icon">
+                      <FileSpreadsheet size={16} />
+                    </div>
+                    <div className="export-item-text">
+                      <div className="export-item-title">Rekap Stok Barang</div>
+                      <div className="export-item-desc">File Excel asli (HP &amp; Dell)</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="export-dropdown-item"
+                    onClick={() => {
+                      setShowExportDropdown(false);
+                      handleOpenExportModal('SMB');
+                    }}
+                  >
+                    <div className="export-item-icon smb-icon">
+                      <Building2 size={16} />
+                    </div>
+                    <div className="export-item-text">
+                      <div className="export-item-title">Format Resmi SMB</div>
+                      <div className="export-item-desc">Excel / Gambar JPG (HP / Dell)</div>
+                    </div>
+                  </button>
+
+                  <button
+                    type="button"
+                    className="export-dropdown-item"
+                    onClick={() => {
+                      setShowExportDropdown(false);
+                      handleOpenExportModal('Distri');
+                    }}
+                  >
+                    <div className="export-item-icon distri-icon">
+                      <Upload size={16} style={{ transform: 'rotate(180deg)' }} />
+                    </div>
+                    <div className="export-item-text">
+                      <div className="export-item-title">Format Resmi Distributor</div>
+                      <div className="export-item-desc">Excel / Gambar JPG (HP / Dell)</div>
+                    </div>
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+
+          <div className="header-divider" />
+
+          {/* Kelompok 3: Aksi Utama */}
+          <button className="btn btn-primary" onClick={openAddForm} title="Tambah data stok barang baru">
+            <PlusCircle size={15} />
             <span>+ Tambah Barang</span>
           </button>
+
+          <div className="header-divider" />
+
+          {/* Kelompok 4: Utilitas Sistem (Icon-Only & Status Pill) */}
+          <div className="header-group header-utilities-group">
+            <button
+              type="button"
+              className="btn-header-compact live-sync-pill"
+              onClick={handleManualSync}
+              disabled={isLiveSyncing}
+              title={`Live Sync Aktif (Klik untuk sinkronisasi manual)\nTerakhir sinkron: ${lastSyncTime.toLocaleTimeString()}`}
+            >
+              <span className="live-dot" />
+              <RefreshCw size={12} className={isLiveSyncing ? 'spin' : ''} />
+              <span>{isLiveSyncing ? 'Sinkron...' : 'Live'}</span>
+            </button>
+
+            <button
+              type="button"
+              className="btn-header-icon"
+              onClick={handleUndo}
+              disabled={history.length === 0}
+              title={history.length > 0 ? `Batalkan: ${history[history.length - 1].desc}` : "Belum ada riwayat perubahan"}
+              aria-label="Undo riwayat"
+            >
+              <RotateCcw size={14} />
+              {history.length > 0 && <span className="undo-badge-floating">{history.length}</span>}
+            </button>
+
+            <button
+              type="button"
+              className="btn-header-icon"
+              onClick={toggleTheme}
+              title={theme === 'dark' ? 'Beralih ke Mode Terang (Light Mode)' : 'Beralih ke Mode Gelap (Dark Mode)'}
+              aria-label="Toggle Dark/Light Mode"
+            >
+              {theme === 'dark' ? <Sun size={15} color="#F59E0B" /> : <Moon size={15} color="#6366F1" />}
+            </button>
+
+            <button
+              type="button"
+              className="btn-header-icon btn-lock-icon"
+              onClick={() => handleLogout()}
+              title="Kunci sesi web (Otomatis terkunci jika 10 menit tidak aktif)"
+              aria-label="Kunci sesi"
+            >
+              <Lock size={14} color="#DC2626" />
+            </button>
+          </div>
         </div>
       </header>
 
@@ -647,10 +813,10 @@ function App() {
           <button className={`tab-btn ${activeBrand === 'DELL LAINNYA' ? 'active' : ''}`} onClick={() => setActiveBrand('DELL LAINNYA')}>
             <Archive size={14} /><span>Dell Lainnya</span><span className="tab-badge">{getTabCount('DELL LAINNYA')}</span>
           </button>
-          <button className={`tab-btn ${activeBrand === 'booking' ? 'active' : ''}`} onClick={() => setActiveBrand('booking')}>
-            <BookmarkCheck size={14} color={activeBrand === 'booking' ? '#D97706' : '#94A3B8'} />
+          <button className={`tab-btn tab-btn-booking ${activeBrand === 'booking' ? 'active' : ''}`} onClick={() => setActiveBrand('booking')}>
+            <BookmarkCheck size={14} className="tab-booking-icon" />
             <span>Di-Booking (Mapping)</span>
-            <span className="tab-badge" style={{ background: '#FEF3C7', color: '#B45309' }}>{getTabCount('booking')}</span>
+            <span className="tab-badge tab-badge-booking">{getTabCount('booking')}</span>
           </button>
           <button className={`tab-btn ${activeBrand === 'low' ? 'active' : ''}`} onClick={() => setActiveBrand('low')}>
             <AlertTriangle size={14} /><span>Stok Kritis</span><span className="tab-badge">{getTabCount('low')}</span>
@@ -690,6 +856,7 @@ function App() {
         onRequestAdd={handleRequestAdd}
         onDelete={handleDelete}
         onEdit={openEditForm}
+        onToast={showToast}
       />
 
       <StockForm 

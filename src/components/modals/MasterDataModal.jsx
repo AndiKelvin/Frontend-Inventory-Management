@@ -1,8 +1,8 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import { X, Building2, Users, Search, Plus, Edit2, Trash2, Check, Phone, MapPin, User, ChevronLeft, ChevronRight, AlertCircle, RefreshCw } from 'lucide-react';
-import StockAPI from '../api';
-import ConfirmDialog from './ConfirmDialog';
-import { parseNotesAndMapping } from '../utils/stockUtils';
+import StockAPI from '../../api';
+import ConfirmDialog from '../common/ConfirmDialog';
+import { parseNotesAndMapping } from '../../utils/stockUtils';
 
 export default function MasterDataModal({ show, onClose, items = [], onDataChanged }) {
   const [activeTab, setActiveTab] = useState('customers'); // 'customers' | 'sales'
@@ -293,7 +293,7 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
   return (
     <>
       <div
-        className="modal-overlay"
+        className="modal-overlay active"
         style={{
           zIndex: 8000,
           background: 'rgba(15, 23, 42, 0.7)',
@@ -310,8 +310,8 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
         <div
           className="modal-container"
           style={{
-            maxWidth: '850px',
-            width: '100%',
+            maxWidth: '1080px',
+            width: '95%',
             maxHeight: '90vh',
             display: 'flex',
             flexDirection: 'column',
@@ -376,36 +376,15 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
           </div>
 
           {/* Segmented Tabs */}
-          <div style={{ padding: '0.8rem 1.5rem', borderBottom: '1px solid #E2E8F0', background: '#FFFFFF', display: 'flex', gap: '0.5rem' }}>
+          <div className="master-data-tabs">
             <button
               type="button"
               onClick={() => setActiveTab('customers')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.5rem 1rem',
-                borderRadius: '8px',
-                fontSize: '0.84rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                border: activeTab === 'customers' ? '1px solid #2563EB' : '1px solid #E2E8F0',
-                background: activeTab === 'customers' ? '#EFF6FF' : '#FFFFFF',
-                color: activeTab === 'customers' ? '#1D4ED8' : '#64748B',
-                transition: 'all 0.15s ease',
-              }}
+              className={`master-tab-btn ${activeTab === 'customers' ? 'active' : ''}`}
             >
               <Building2 size={16} />
               <span>Master Customer</span>
-              <span
-                style={{
-                  background: activeTab === 'customers' ? '#DBEAFE' : '#F1F5F9',
-                  color: activeTab === 'customers' ? '#1E40AF' : '#64748B',
-                  padding: '1px 6px',
-                  borderRadius: '12px',
-                  fontSize: '0.72rem',
-                }}
-              >
+              <span className="master-tab-badge">
                 {customers.length}
               </span>
             </button>
@@ -413,56 +392,33 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
             <button
               type="button"
               onClick={() => setActiveTab('sales')}
-              style={{
-                display: 'inline-flex',
-                alignItems: 'center',
-                gap: '0.45rem',
-                padding: '0.5rem 1rem',
-                borderRadius: '8px',
-                fontSize: '0.84rem',
-                fontWeight: 600,
-                cursor: 'pointer',
-                border: activeTab === 'sales' ? '1px solid #2563EB' : '1px solid #E2E8F0',
-                background: activeTab === 'sales' ? '#EFF6FF' : '#FFFFFF',
-                color: activeTab === 'sales' ? '#1D4ED8' : '#64748B',
-                transition: 'all 0.15s ease',
-              }}
+              className={`master-tab-btn ${activeTab === 'sales' ? 'active' : ''}`}
             >
               <Users size={16} />
               <span>Master Sales</span>
-              <span
-                style={{
-                  background: activeTab === 'sales' ? '#DBEAFE' : '#F1F5F9',
-                  color: activeTab === 'sales' ? '#1E40AF' : '#64748B',
-                  padding: '1px 6px',
-                  borderRadius: '12px',
-                  fontSize: '0.72rem',
-                }}
-              >
+              <span className="master-tab-badge">
                 {salesList.length}
               </span>
             </button>
           </div>
 
           {/* Tab Content Body */}
-          <div style={{ flex: 1, overflowY: 'auto', padding: '1.2rem 1.5rem', background: '#F8FAFC' }}>
+          <div style={{ flex: 1, overflowY: 'auto', padding: '1.2rem 1.5rem', background: 'var(--bg-subtle)' }}>
             {/* ===================== TAB CUSTOMER ===================== */}
             {activeTab === 'customers' && (
               <div>
                 {/* Action Bar (Search & Tambah) */}
-                <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem', flexWrap: 'wrap' }}>
-                  <div style={{ flex: 1, minWidth: '240px', position: 'relative' }}>
-                    <Search size={15} style={{ position: 'absolute', left: '10px', top: '10px', color: '#94A3B8' }} />
+                <div style={{ display: 'flex', gap: '0.8rem', marginBottom: '1rem', flexWrap: 'wrap', alignItems: 'center' }}>
+                  <div className="search-wrapper" style={{ flex: 1, minWidth: '260px' }}>
+                    <Search className="search-icon" size={15} />
                     <input
                       type="text"
-                      className="custom-input"
                       placeholder="Cari PT, Instansi, PIC, Telepon..."
                       value={customerSearch}
                       onChange={(e) => {
                         setCustomerSearch(e.target.value);
                         setCurrentPage(1);
                       }}
-                      style={{ paddingLeft: '32px', width: '100%', fontSize: '0.84rem' }}
                     />
                   </div>
 
@@ -470,7 +426,7 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
                     type="button"
                     className="btn btn-primary"
                     onClick={handleOpenAddCustomer}
-                    style={{ fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem' }}
+                    style={{ fontSize: '0.82rem', display: 'inline-flex', alignItems: 'center', gap: '0.4rem', whiteSpace: 'nowrap' }}
                   >
                     <Plus size={16} />
                     <span>+ Tambah Customer</span>
@@ -591,11 +547,11 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
                 )}
 
                 {/* Tabel Customers */}
-                <div style={{ background: '#FFFFFF', borderRadius: '12px', border: '1px solid #E2E8F0', overflow: 'hidden' }}>
+                <div style={{ background: 'var(--bg-card)', borderRadius: '12px', border: '1px solid var(--border-default)', overflow: 'hidden' }}>
                   <div style={{ overflowX: 'auto' }}>
                     <table className="compact-stock-table" style={{ width: '100%', fontSize: '0.8rem' }}>
                       <thead>
-                        <tr style={{ background: '#F8FAFC' }}>
+                        <tr style={{ background: 'var(--bg-subtle)' }}>
                           <th style={{ width: '40px', textAlign: 'center' }}>No</th>
                           <th style={{ minWidth: '180px' }}>Nama Perusahaan</th>
                           <th style={{ width: '150px' }}>PIC</th>
@@ -607,54 +563,54 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
                       <tbody>
                         {loadingCustomers ? (
                           <tr>
-                            <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#64748B' }}>
+                            <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                               <RefreshCw size={18} className="spin" style={{ display: 'inline-block', marginRight: '6px' }} />
                               Memuat data customer...
                             </td>
                           </tr>
                         ) : paginatedCustomers.length === 0 ? (
                           <tr>
-                            <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: '#94A3B8' }}>
+                            <td colSpan="6" style={{ textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                               Tidak ada data customer yang cocok.
                             </td>
                           </tr>
                         ) : (
                           paginatedCustomers.map((cust, idx) => (
                             <tr key={cust.id}>
-                              <td style={{ textAlign: 'center', color: '#94A3B8', fontWeight: 600 }}>
+                              <td style={{ textAlign: 'center', color: 'var(--text-muted)', fontWeight: 600 }}>
                                 {(currentPage - 1) * PAGE_SIZE + idx + 1}
                               </td>
-                              <td style={{ fontWeight: 600, color: '#0F172A' }}>
+                              <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                                 {cust.companyName}
                               </td>
                               <td>
                                 {cust.contactName ? (
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#475569' }}>
-                                    <User size={12} color="#64748B" />
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--text-secondary)' }}>
+                                    <User size={12} color="var(--text-muted)" />
                                     {cust.contactName}
                                   </span>
                                 ) : (
-                                  <span style={{ color: '#CBD5E1' }}>-</span>
+                                  <span style={{ color: 'var(--text-muted)' }}>-</span>
                                 )}
                               </td>
                               <td>
                                 {cust.phone ? (
-                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: '#0284C7', fontWeight: 500 }}>
+                                  <span style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', color: 'var(--dell-primary)', fontWeight: 500 }}>
                                     <Phone size={12} />
                                     {cust.phone}
                                   </span>
                                 ) : (
-                                  <span style={{ color: '#CBD5E1' }}>-</span>
+                                  <span style={{ color: 'var(--text-muted)' }}>-</span>
                                 )}
                               </td>
-                              <td style={{ color: '#64748B', maxWidth: '220px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                              <td style={{ color: 'var(--text-secondary)', maxWidth: '220px', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                 {cust.address ? (
                                   <span title={cust.address} style={{ display: 'inline-flex', alignItems: 'center', gap: '4px' }}>
-                                    <MapPin size={12} color="#94A3B8" />
+                                    <MapPin size={12} color="var(--text-muted)" />
                                     {cust.address}
                                   </span>
                                 ) : (
-                                  <span style={{ color: '#CBD5E1' }}>-</span>
+                                  <span style={{ color: 'var(--text-muted)' }}>-</span>
                                 )}
                               </td>
                               <td style={{ textAlign: 'center' }}>
@@ -689,13 +645,13 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
                     <div
                       style={{
                         padding: '0.6rem 1rem',
-                        borderTop: '1px solid #E2E8F0',
+                        borderTop: '1px solid var(--border-default)',
                         display: 'flex',
                         alignItems: 'center',
                         justifyContent: 'space-between',
-                        background: '#FAFAFA',
+                        background: 'var(--bg-subtle)',
                         fontSize: '0.78rem',
-                        color: '#64748B',
+                        color: 'var(--text-secondary)',
                       }}
                     >
                       <span>
@@ -736,8 +692,8 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
                 <form
                   onSubmit={handleAddSales}
                   style={{
-                    background: '#FFFFFF',
-                    border: '1px solid #E2E8F0',
+                    background: 'var(--bg-card)',
+                    border: '1px solid var(--border-default)',
                     borderRadius: '12px',
                     padding: '1rem',
                     marginBottom: '1.2rem',
@@ -765,7 +721,7 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
                 </form>
 
                 {salesError && (
-                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: '#DC2626', background: '#FEF2F2', padding: '6px 10px', borderRadius: '6px', fontSize: '0.78rem', marginBottom: '0.8rem', border: '1px solid #FECACA' }}>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '6px', color: 'var(--red-critical)', background: 'var(--red-surface)', padding: '6px 10px', borderRadius: '6px', fontSize: '0.78rem', marginBottom: '0.8rem', border: '1px solid var(--red-border)' }}>
                     <AlertCircle size={14} />
                     <span>{salesError}</span>
                   </div>
@@ -774,7 +730,7 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
                 {/* Sales Grid */}
                 <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(220px, 1fr))', gap: '0.8rem' }}>
                   {loadingSales ? (
-                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: '#64748B' }}>
+                    <div style={{ gridColumn: '1 / -1', textAlign: 'center', padding: '2rem', color: 'var(--text-muted)' }}>
                       <RefreshCw size={18} className="spin" style={{ display: 'inline-block', marginRight: '6px' }} />
                       Memuat daftar sales...
                     </div>
@@ -786,15 +742,15 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
                       <div
                         key={salesName}
                         style={{
-                          background: '#FFFFFF',
-                          border: '1px solid #E2E8F0',
+                          background: 'var(--bg-card)',
+                          border: '1px solid var(--border-default)',
                           borderRadius: '10px',
                           padding: '0.85rem',
                           display: 'flex',
                           alignItems: 'center',
                           justifyContent: 'space-between',
                           gap: '0.6rem',
-                          boxShadow: '0 1px 2px rgba(0,0,0,0.03)',
+                          boxShadow: 'var(--shadow-xs)',
                         }}
                       >
                         <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem', flex: 1, minWidth: 0 }}>
@@ -803,8 +759,8 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
                               width: '32px',
                               height: '32px',
                               borderRadius: '50%',
-                              background: '#EFF6FF',
-                              color: '#2563EB',
+                              background: 'var(--dell-surface)',
+                              color: 'var(--dell-primary)',
                               fontWeight: 700,
                               fontSize: '0.82rem',
                               display: 'flex',
@@ -841,15 +797,15 @@ export default function MasterDataModal({ show, onClose, items = [], onDataChang
                               </div>
                             ) : (
                               <>
-                                <div style={{ fontSize: '0.84rem', fontWeight: 600, color: '#0F172A', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+                                <div style={{ fontSize: '0.84rem', fontWeight: 600, color: 'var(--text-primary)', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
                                   {salesName}
                                 </div>
                                 {bookedCount > 0 ? (
-                                  <span style={{ fontSize: '0.68rem', fontWeight: 600, color: '#B45309', background: '#FEF3C7', padding: '1px 5px', borderRadius: '4px' }}>
+                                  <span className="badge-status-booking" style={{ padding: '1px 5px' }}>
                                     {bookedCount} booking aktif
                                   </span>
                                 ) : (
-                                  <span style={{ fontSize: '0.68rem', color: '#94A3B8' }}>
+                                  <span style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
                                     0 booking
                                   </span>
                                 )}

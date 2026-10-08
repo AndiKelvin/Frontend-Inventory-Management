@@ -34,7 +34,7 @@ export default function ConfirmDialog({
 
   return (
     <div
-      className="modal-overlay"
+      className="modal-overlay active"
       style={{
         zIndex: 9999,
         background: 'rgba(15, 23, 42, 0.65)',
@@ -53,9 +53,10 @@ export default function ConfirmDialog({
         style={{
           maxWidth: '440px',
           width: '100%',
-          background: '#FFFFFF',
+          background: 'var(--bg-card)',
+          border: '1px solid var(--border-default)',
           borderRadius: '16px',
-          boxShadow: '0 25px 50px -12px rgba(15, 23, 42, 0.25)',
+          boxShadow: 'var(--shadow-floating)',
           overflow: 'hidden',
           animation: 'modalSlideUp 0.18s cubic-bezier(0.16, 1, 0.3, 1)',
         }}
@@ -70,9 +71,9 @@ export default function ConfirmDialog({
               alignItems: 'center',
               justifyContent: 'center',
               flexShrink: 0,
-              background: isDanger ? '#FEF2F2' : isWarning ? '#FFFBEB' : '#EFF6FF',
-              color: isDanger ? '#DC2626' : isWarning ? '#D97706' : '#2563EB',
-              border: `1px solid ${isDanger ? '#FECACA' : isWarning ? '#FDE68A' : '#BFDBFE'}`,
+              background: isDanger ? 'var(--red-surface)' : isWarning ? 'var(--amber-surface)' : 'var(--dell-surface)',
+              color: isDanger ? 'var(--red-critical)' : isWarning ? 'var(--amber-warning)' : 'var(--dell-primary)',
+              border: `1px solid ${isDanger ? 'var(--red-border)' : isWarning ? 'var(--amber-border)' : 'var(--dell-border)'}`,
             }}
           >
             {isDanger ? <Trash2 size={22} /> : isWarning ? <AlertTriangle size={22} /> : <Info size={22} />}
@@ -80,7 +81,7 @@ export default function ConfirmDialog({
 
           <div style={{ flex: 1 }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: '#0F172A', margin: 0 }}>
+              <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)', margin: 0 }}>
                 {title}
               </h3>
               <button
@@ -90,7 +91,7 @@ export default function ConfirmDialog({
                   background: 'transparent',
                   border: 'none',
                   cursor: 'pointer',
-                  color: '#94A3B8',
+                  color: 'var(--text-muted)',
                   padding: '2px',
                   display: 'flex',
                   borderRadius: '6px',
@@ -101,7 +102,7 @@ export default function ConfirmDialog({
               </button>
             </div>
 
-            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: '#475569', lineHeight: 1.5 }}>
+            <p style={{ margin: '0.5rem 0 0 0', fontSize: '0.85rem', color: 'var(--text-secondary)', lineHeight: 1.5 }}>
               {message}
             </p>
           </div>
@@ -110,8 +111,8 @@ export default function ConfirmDialog({
         <div
           style={{
             padding: '0.9rem 1.5rem',
-            background: '#F8FAFC',
-            borderTop: '1px solid #E2E8F0',
+            background: 'var(--bg-subtle)',
+            borderTop: '1px solid var(--border-default)',
             display: 'flex',
             justifyContent: 'flex-end',
             gap: '0.6rem',
@@ -126,8 +127,6 @@ export default function ConfirmDialog({
                 fontSize: '0.82rem',
                 padding: '0.45rem 1rem',
                 borderRadius: '8px',
-                border: '1px solid #CBD5E1',
-                color: '#475569',
               }}
             >
               {cancelText}

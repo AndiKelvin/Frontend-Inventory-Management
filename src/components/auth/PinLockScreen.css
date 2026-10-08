@@ -216,63 +216,19 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-/* Keypad Grid */
-.pin-keypad {
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 0.45rem;
+/* Hidden input to capture device keyboard */
+.pin-hidden-input {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  max-width: 200px;
-  margin-bottom: 0.75rem;
-}
-
-.pin-key-btn {
-  width: 44px;
-  height: 44px;
-  margin: 0 auto;
-  border-radius: 50%;
-  border: 1px solid #E2E8F0;
-  background: rgba(248, 250, 252, 0.9);
-  color: #1E293B;
-  font-size: 1.12rem;
-  font-weight: 600;
+  height: 100%;
+  opacity: 0;
   cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.12s ease;
-  user-select: none;
-  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.03);
-}
-
-.pin-key-btn:hover:not(:disabled) {
-  background: #EFF6FF;
-  border-color: #BFDBFE;
-  color: #1D4ED8;
-  transform: scale(1.05);
-  box-shadow: 0 2px 6px rgba(37, 99, 235, 0.12);
-}
-
-.pin-key-btn:active:not(:disabled) {
-  transform: scale(0.92);
-  background: #DBEAFE;
-}
-
-.pin-key-btn:disabled {
-  opacity: 0.4;
-  cursor: not-allowed;
-}
-
-.pin-key-btn.pin-key-action {
-  font-size: 0.85rem;
-  color: #64748B;
-  background: #F1F5F9;
-  border-color: transparent;
-}
-
-.pin-key-btn.pin-key-action:hover:not(:disabled) {
-  background: #E2E8F0;
-  color: #0F172A;
+  z-index: 2;
+  border: none;
+  outline: none;
+  background: transparent;
+  color: transparent;
 }
 
 /* Footer */
@@ -284,7 +240,48 @@
   font-size: 0.68rem;
   text-align: center;
   border-top: 1px solid #F1F5F9;
-  padding-top: 0.55rem;
+  padding-top: 0.65rem;
   width: 100%;
   justify-content: center;
 }
+
+/* ==========================================================================
+   DARK MODE OVERRIDES FOR PIN LOCK SCREEN
+   ========================================================================== */
+[data-theme="dark"] .pin-lock-overlay {
+  background: rgba(11, 15, 25, 0.72);
+}
+
+[data-theme="dark"] .pin-lock-card {
+  background: rgba(19, 29, 49, 0.92);
+  box-shadow: 
+    0 16px 36px -10px rgba(0, 0, 0, 0.6),
+    0 0 0 1px rgba(255, 255, 255, 0.08),
+    0 0 0 1px rgba(37, 55, 87, 0.75);
+}
+
+[data-theme="dark"] .pin-lock-title {
+  color: #F1F5F9;
+}
+
+[data-theme="dark"] .pin-lock-subtitle {
+  color: #94A3B8;
+}
+
+[data-theme="dark"] .pin-security-badge {
+  background: #182338;
+  color: #94A3B8;
+  border-color: #253757;
+}
+
+[data-theme="dark"] .pin-dot {
+  background: #182338;
+  border-color: #3A507B;
+}
+
+[data-theme="dark"] .pin-lock-footer {
+  border-top-color: #253757;
+  color: #64748B;
+}
+
+

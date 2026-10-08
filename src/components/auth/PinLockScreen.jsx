@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { ShieldCheck, Lock, Delete, AlertCircle, CheckCircle2, KeyRound } from 'lucide-react';
-import StockAPI from '../api';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { ShieldCheck, Lock, AlertCircle, CheckCircle2, KeyRound } from 'lucide-react';
+import StockAPI from '../../api';
 import './PinLockScreen.css';
 
 export default function PinLockScreen({ onAuthenticated }) {
@@ -9,6 +9,7 @@ export default function PinLockScreen({ onAuthenticated }) {
   const [isLoading, setIsLoading] = useState(false);
   const [isShaking, setIsShaking] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
+  const inputRef = useRef(null);
 
   const PIN_LENGTH = 6;
 
@@ -18,6 +19,7 @@ export default function PinLockScreen({ onAuthenticated }) {
     setTimeout(() => {
       setIsShaking(false);
       setPin('');
+      inputRef.current?.focus();
     }, 450);
   }, []);
 
@@ -43,52 +45,77 @@ export default function PinLockScreen({ onAuthenticated }) {
     }
   }, [isLoading, isSuccess, onAuthenticated, triggerError]);
 
-  const handleKeyPress = useCallback((digit) => {
+  const handleInputChange = (e) => {
     if (isLoading || isSuccess) return;
-    if (pin.length < PIN_LENGTH) {
-      const nextPin = pin + digit;
-      setPin(nextPin);
-      setError('');
-      if (nextPin.length === PIN_LENGTH) {
-        handleVerify(nextPin);
-      }
+    const cleanVal = e.target.value.replace(/\D/g, '').slice(0, PIN_LENGTH);
+    setPin(cleanVal);
+    setError('');
+    if (cleanVal.length === PIN_LENGTH) {
+      handleVerify(cleanVal);
     }
-  }, [pin, isLoading, isSuccess, handleVerify]);
+  };
 
-  const handleBackspace = useCallback(() => {
-    if (isLoading || isSuccess) return;
-    setPin((prev) => prev.slice(0, -1));
-    setError('');
-  }, [isLoading, isSuccess]);
-
-  const handleClear = useCallback(() => {
-    if (isLoading || isSuccess) return;
-    setPin('');
-    setError('');
-  }, [isLoading, isSuccess]);
+  // Auto-focus input saat pertama kali dimuat
+  useEffect(() => {
+    inputRef.current?.focus();
+  }, []);
 
   // Listener keyboard fisik (numpad atau angka keyboard)
   useEffect(() => {
     const handleKeyDown = (e) => {
-      if (/^[0-9]$/.test(e.key)) {
+      if (isLoading || isSuccess) return;
+
+      if (e.key === 'Escape') {
         e.preventDefault();
-        handleKeyPress(e.key);
-      } else if (e.key === 'Backspace') {
-        e.preventDefault();
-        handleBackspace();
-      } else if (e.key === 'Escape' || e.key === 'Delete') {
-        e.preventDefault();
-        handleClear();
+        setPin('');
+        setError('');
+        return;
+      }
+
+      // Pastikan input tetap fokus jika user mengetik angka dari keyboard fisik
+      if (inputRef.current && document.activeElement !== inputRef.current) {
+        if (/^[0-9]$/.test(e.key)) {
+          e.preventDefault();
+          inputRef.current.focus();
+          const next = (pin + e.key).slice(0, PIN_LENGTH);
+          setPin(next);
+          setError('');
+          if (next.length === PIN_LENGTH) {
+            handleVerify(next);
+          }
+        }
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleKeyPress, handleBackspace, handleClear]);
+  }, [pin, isLoading, isSuccess, handleVerify]);
 
   return (
-    <div className="pin-lock-overlay">
-      <div className={`pin-lock-card ${isShaking ? 'shake' : ''} ${isSuccess ? 'success-pulse' : ''}`}>
+    <div className="pin-lock-overlay" onClick={() => inputRef.current?.focus()}>
+      <div 
+        className={`pin-lock-card ${isShaking ? 'shake' : ''} ${isSuccess ? 'success-pulse' : ''}`}
+        onClick={(e) => {
+          e.stopPropagation();
+          inputRef.current?.focus();
+        }}
+      >
+        {/* Input untuk menangkap ketikan keyboard perangkat (termasuk virtual keyboard HP/tablet) */}
+        <input
+          ref={inputRef}
+          type="password"
+          inputMode="numeric"
+          pattern="[0-9]*"
+          maxLength={PIN_LENGTH}
+          value={pin}
+          onChange={handleInputChange}
+          autoFocus
+          className="pin-hidden-input"
+          disabled={isLoading || isSuccess}
+          autoComplete="one-time-code"
+          aria-label="PIN Keamanan 6 Digit"
+        />
+
         {/* Header & Logo */}
         <div className="pin-lock-header">
           <div className="pin-lock-icon-wrapper">
@@ -136,47 +163,6 @@ export default function PinLockScreen({ onAuthenticated }) {
               <span>Memverifikasi...</span>
             </div>
           )}
-        </div>
-
-        {/* Keypad Grid */}
-        <div className="pin-keypad">
-          {['1', '2', '3', '4', '5', '6', '7', '8', '9'].map((digit) => (
-            <button
-              key={digit}
-              type="button"
-              className="pin-key-btn"
-              onClick={() => handleKeyPress(digit)}
-              disabled={isLoading || isSuccess}
-            >
-              {digit}
-            </button>
-          ))}
-          <button
-            type="button"
-            className="pin-key-btn pin-key-action"
-            onClick={handleClear}
-            disabled={isLoading || isSuccess || pin.length === 0}
-            title="Hapus Semua (Escape)"
-          >
-            C
-          </button>
-          <button
-            type="button"
-            className="pin-key-btn"
-            onClick={() => handleKeyPress('0')}
-            disabled={isLoading || isSuccess}
-          >
-            0
-          </button>
-          <button
-            type="button"
-            className="pin-key-btn pin-key-action"
-            onClick={handleBackspace}
-            disabled={isLoading || isSuccess || pin.length === 0}
-            title="Hapus Satu Digit (Backspace)"
-          >
-            <Delete size={17} />
-          </button>
         </div>
 
         {/* Footer info */}

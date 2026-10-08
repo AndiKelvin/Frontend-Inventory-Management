@@ -7,6 +7,18 @@
     <meta name="theme-color" content="#0F172A" />
     <meta name="description" content="Sistem Manajemen Inventaris & Pemantauan Stok Berjalan Laptop & PC Real-Time" />
     <title>Daftar Stok Berjalan • NextGen Cloud Inventory</title>
+    <script>
+      (function() {
+        try {
+          var t = localStorage.getItem('techstock_theme');
+          if (t === 'dark' || (!t && window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches)) {
+            document.documentElement.setAttribute('data-theme', 'dark');
+          } else {
+            document.documentElement.setAttribute('data-theme', 'light');
+          }
+        } catch (e) {}
+      })();
+    </script>
   </head>
   <body>
     <div id="root"></div>

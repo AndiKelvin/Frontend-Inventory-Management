@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { X, History, Search, Download, ArrowDownRight, ArrowUpRight, Tag, SlidersHorizontal, RefreshCw, Trash2, Edit, Save, Check, Calendar, Package, ChevronDown, Building2, AlertCircle } from 'lucide-react';
-import StockAPI from '../api';
-import ConfirmDialog from './ConfirmDialog';
+import StockAPI from '../../api';
+import ConfirmDialog from '../common/ConfirmDialog';
 
 const toLocalISOString = (dateVal) => {
   if (!dateVal) return '';
@@ -315,69 +315,32 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
 
           {/* Filter Tipe Mutasi & Action */}
           <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', flexWrap: 'wrap' }}>
-            <div style={{ display: 'flex', background: '#F1F5F9', borderRadius: '6px', padding: '2px' }}>
+            <div className="filter-type-group">
               <button
                 type="button"
+                className={`btn-type-filter ${typeFilter === 'all' ? 'active' : ''}`}
                 onClick={() => setTypeFilter('all')}
-                style={{
-                  padding: '0.35rem 0.65rem',
-                  fontSize: '0.76rem',
-                  fontWeight: 600,
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  background: typeFilter === 'all' ? '#FFFFFF' : 'transparent',
-                  color: typeFilter === 'all' ? '#0F172A' : '#64748B',
-                  boxShadow: typeFilter === 'all' ? '0 1px 2px rgba(0,0,0,0.05)' : 'none'
-                }}
               >
                 Semua
               </button>
               <button
                 type="button"
+                className={`btn-type-filter filter-out ${typeFilter === 'OUT' ? 'active' : ''}`}
                 onClick={() => setTypeFilter('OUT')}
-                style={{
-                  padding: '0.35rem 0.65rem',
-                  fontSize: '0.76rem',
-                  fontWeight: 600,
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  background: typeFilter === 'OUT' ? '#FEE2E2' : 'transparent',
-                  color: typeFilter === 'OUT' ? '#DC2626' : '#64748B'
-                }}
               >
                 Keluar (OUT)
               </button>
               <button
                 type="button"
+                className={`btn-type-filter filter-in ${typeFilter === 'IN' ? 'active' : ''}`}
                 onClick={() => setTypeFilter('IN')}
-                style={{
-                  padding: '0.35rem 0.65rem',
-                  fontSize: '0.76rem',
-                  fontWeight: 600,
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  background: typeFilter === 'IN' ? '#DCFCE7' : 'transparent',
-                  color: typeFilter === 'IN' ? '#16A34A' : '#64748B'
-                }}
               >
                 Masuk (IN)
               </button>
               <button
                 type="button"
+                className={`btn-type-filter filter-booking ${typeFilter === 'BOOKING' ? 'active' : ''}`}
                 onClick={() => setTypeFilter('BOOKING')}
-                style={{
-                  padding: '0.35rem 0.65rem',
-                  fontSize: '0.76rem',
-                  fontWeight: 600,
-                  border: 'none',
-                  borderRadius: '5px',
-                  cursor: 'pointer',
-                  background: typeFilter === 'BOOKING' ? '#FEF3C7' : 'transparent',
-                  color: typeFilter === 'BOOKING' ? '#D97706' : '#64748B'
-                }}
               >
                 Booking
               </button>
@@ -387,14 +350,8 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
               type="button"
               onClick={fetchMovements}
               title="Refresh History"
-              style={{
-                padding: '0.45rem',
-                border: '1px solid #CBD5E1',
-                borderRadius: '6px',
-                background: '#FFFFFF',
-                cursor: 'pointer',
-                color: '#475569'
-              }}
+              className="btn btn-secondary"
+              style={{ padding: '0.45rem', fontSize: '0.8rem' }}
             >
               <RefreshCw size={14} />
             </button>
@@ -421,15 +378,15 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
         {/* Petunjuk Klik untuk Edit */}
         <div style={{
           padding: '0.4rem 0.75rem',
-          background: '#F8FAFC',
-          borderBottom: '1px solid #E2E8F0',
+          background: 'var(--bg-subtle)',
+          borderBottom: '1px solid var(--border-default)',
           fontSize: '0.73rem',
-          color: '#475569',
+          color: 'var(--text-secondary)',
           display: 'flex',
           alignItems: 'center',
           gap: '0.4rem'
         }}>
-          <Edit size={13} color="#2563EB" />
+          <Edit size={13} color="var(--border-focus)" />
           <span><strong>Tips:</strong> Klik baris tabel mana pun untuk mengedit catatan jika terjadi kesalahan input (tidak perlu menghapus data).</span>
         </div>
 
@@ -468,23 +425,17 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
                   const isIn = m.type === 'IN';
                   const isBooking = m.type === 'BOOKING';
 
-                  let typeBadgeBg = '#F1F5F9';
-                  let typeBadgeColor = '#475569';
                   let typeIcon = <SlidersHorizontal size={12} />;
 
                   if (isOut) {
-                    typeBadgeBg = '#FEE2E2';
-                    typeBadgeColor = '#DC2626';
                     typeIcon = <ArrowDownRight size={12} />;
                   } else if (isIn) {
-                    typeBadgeBg = '#DCFCE7';
-                    typeBadgeColor = '#16A34A';
                     typeIcon = <ArrowUpRight size={12} />;
                   } else if (isBooking) {
-                    typeBadgeBg = '#FEF3C7';
-                    typeBadgeColor = '#D97706';
                     typeIcon = <Tag size={12} />;
                   }
+
+                  const typeClass = isOut ? 'type-badge-out' : (isIn ? 'type-badge-in' : (isBooking ? 'type-badge-booking' : 'type-badge-default'));
 
                   const formattedDate = m.timestamp
                     ? new Intl.DateTimeFormat('id-ID', {
@@ -501,38 +452,26 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
                       key={m.id}
                       onClick={() => handleStartEdit(m)}
                       title="Klik baris untuk edit catatan History ini"
-                      style={{ cursor: 'pointer', transition: 'background-color 0.12s ease' }}
-                      onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = '#F1F5F9'; }}
-                      onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = 'transparent'; }}
+                      style={{ cursor: 'pointer' }}
                     >
-                      <td style={{ fontSize: '0.74rem', color: '#64748B', whiteSpace: 'nowrap' }}>
+                      <td style={{ fontSize: '0.74rem', color: 'var(--text-muted)', whiteSpace: 'nowrap' }}>
                         {formattedDate}
                       </td>
                       <td style={{ textAlign: 'center' }}>
-                        <span style={{
-                          display: 'inline-flex',
-                          alignItems: 'center',
-                          gap: '3px',
-                          padding: '2px 7px',
-                          borderRadius: '12px',
-                          fontSize: '0.7rem',
-                          fontWeight: 700,
-                          background: typeBadgeBg,
-                          color: typeBadgeColor
-                        }}>
+                        <span className={`type-badge ${typeClass}`}>
                           {typeIcon}
                           {m.type}
                         </span>
                       </td>
                       <td>
-                        <div style={{ fontWeight: 600, color: '#0F172A', lineHeight: 1.25 }}>
+                        <div style={{ fontWeight: 600, color: 'var(--text-primary)', lineHeight: 1.25 }}>
                           {m.itemName || '-'}
                         </div>
                         {m.partNumber && (
                           <span style={{
                             fontFamily: 'monospace',
                             fontSize: '0.72rem',
-                            color: '#0284C7',
+                            color: 'var(--dell-primary)',
                             fontWeight: 600
                           }}>
                             {m.partNumber}
@@ -540,31 +479,31 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
                         )}
                       </td>
                       <td style={{ textAlign: 'center', fontWeight: 700 }}>
-                        <span style={{ color: isOut ? '#DC2626' : (isIn ? '#16A34A' : '#2563EB') }}>
+                        <span style={{ color: isOut ? 'var(--red-critical)' : (isIn ? 'var(--ready-green)' : 'var(--dell-primary)') }}>
                           {isOut ? `-${m.amount}` : (isIn ? `+${m.amount}` : m.amount)} unit
                         </span>
                         {m.newQty !== null && m.newQty !== undefined && (
-                          <div style={{ fontSize: '0.68rem', color: '#94A3B8', fontWeight: 400 }}>
+                          <div style={{ fontSize: '0.68rem', color: 'var(--text-muted)', fontWeight: 400 }}>
                             Sisa: {m.newQty}
                           </div>
                         )}
                       </td>
-                      <td style={{ color: '#334155' }}>
+                      <td style={{ color: 'var(--text-secondary)' }}>
                         {m.location || '-'}
                       </td>
-                      <td style={{ fontWeight: 600, color: '#1E293B' }}>
+                      <td style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
                         {m.actor && m.actor !== '-' ? (
-                          <span style={{ background: '#F8FAFC', padding: '2px 6px', borderRadius: '4px', border: '1px solid #E2E8F0' }}>
+                          <span style={{ background: 'var(--bg-subtle)', padding: '2px 6px', borderRadius: '4px', border: '1px solid var(--border-default)' }}>
                             👤 {m.actor}
                           </span>
                         ) : (
-                          <span style={{ color: '#94A3B8' }}>-</span>
+                          <span style={{ color: 'var(--text-muted)' }}>-</span>
                         )}
                       </td>
-                      <td style={{ fontFamily: 'monospace', fontSize: '0.73rem', color: '#475569' }}>
+                      <td style={{ fontFamily: 'monospace', fontSize: '0.73rem', color: 'var(--text-secondary)' }}>
                         {m.reference && m.reference !== '-' ? m.reference : '-'}
                       </td>
-                      <td style={{ color: '#475569', fontSize: '0.74rem' }}>
+                      <td style={{ color: 'var(--text-secondary)', fontSize: '0.74rem' }}>
                         {m.notes || '-'}
                       </td>
                       <td style={{ textAlign: 'center' }}>
@@ -576,22 +515,10 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
                               handleStartEdit(m);
                             }}
                             title="Edit Catatan History"
-                            style={{
-                              border: 'none',
-                              background: 'transparent',
-                              color: '#2563EB',
-                              cursor: 'pointer',
-                              padding: '4px 5px',
-                              borderRadius: '4px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.15s ease'
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = '#EFF6FF'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; }}
+                            className="btn-row-action"
+                            style={{ width: '26px', height: '26px' }}
                           >
-                            <Edit size={14} />
+                            <Edit size={13} />
                           </button>
                           <button
                             type="button"
@@ -601,23 +528,10 @@ const MovementLogsModal = ({ show, onClose, items = [] }) => {
                             }}
                             disabled={deletingId === m.id}
                             title="Hapus Catatan Ini"
-                            style={{
-                              border: 'none',
-                              background: 'transparent',
-                              color: '#EF4444',
-                              cursor: 'pointer',
-                              padding: '4px 5px',
-                              borderRadius: '4px',
-                              display: 'inline-flex',
-                              alignItems: 'center',
-                              justifyContent: 'center',
-                              transition: 'all 0.15s ease',
-                              opacity: deletingId === m.id ? 0.4 : 0.85
-                            }}
-                            onMouseEnter={(e) => { e.currentTarget.style.background = '#FEE2E2'; e.currentTarget.style.opacity = '1'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.opacity = '0.85'; }}
+                            className="btn-row-action delete"
+                            style={{ width: '26px', height: '26px' }}
                           >
-                            <Trash2 size={14} />
+                            <Trash2 size={13} />
                           </button>
                         </div>
                       </td>

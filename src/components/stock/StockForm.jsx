@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { X, Check, UserCheck, Plus, Trash2, AlertCircle } from 'lucide-react';
-import { parseNotesAndMapping, formatNotesAndMapping } from '../utils/stockUtils';
+import { parseNotesAndMapping, formatNotesAndMapping } from '../../utils/stockUtils';
 
 const StockForm = ({ show, item, onClose, onSave }) => {
   const [formData, setFormData] = useState({
@@ -226,16 +226,16 @@ const StockForm = ({ show, item, onClose, onSave }) => {
 
           {/* Section Alokasi Booking / Mapping Sales (Terpisah & Rapi) */}
           <div style={{
-            background: '#F8FAFC',
-            border: '1px solid #E2E8F0',
+            background: 'var(--bg-subtle)',
+            border: '1px solid var(--border-default)',
             borderRadius: '8px',
             padding: '0.85rem',
             marginBottom: '1rem'
           }}>
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.65rem' }}>
               <div style={{ display: 'flex', alignItems: 'center', gap: '0.45rem' }}>
-                <UserCheck size={16} color="#2563EB" />
-                <span style={{ fontWeight: 700, fontSize: '0.86rem', color: '#1E293B' }}>
+                <UserCheck size={16} color="var(--dell-primary)" />
+                <span style={{ fontWeight: 700, fontSize: '0.86rem', color: 'var(--text-primary)' }}>
                   Alokasi Mapping / Booking Sales
                 </span>
               </div>
@@ -252,9 +252,9 @@ const StockForm = ({ show, item, onClose, onSave }) => {
                   gap: '0.35rem',
                   fontSize: '0.75rem',
                   padding: '4px 9px',
-                  background: showMappingInput ? '#EEF2F6' : '#EFF6FF',
-                  color: '#1D4ED8',
-                  borderColor: '#BFDBFE',
+                  background: showMappingInput ? 'var(--bg-active)' : 'var(--dell-surface)',
+                  color: 'var(--dell-primary)',
+                  borderColor: 'var(--border-default)',
                   fontWeight: 600
                 }}
               >
@@ -271,13 +271,13 @@ const StockForm = ({ show, item, onClose, onSave }) => {
               marginBottom: '0.75rem',
               fontSize: '0.74rem'
             }}>
-              <span style={{ background: '#E2E8F0', color: '#334155', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>
+              <span style={{ background: 'var(--bg-active)', color: 'var(--text-primary)', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>
                 Total Stok: {currentTotalQty} unit
               </span>
-              <span style={{ background: totalMapped > 0 ? '#FEF3C7' : '#F1F5F9', color: totalMapped > 0 ? '#B45309' : '#64748B', padding: '2px 7px', borderRadius: '4px', fontWeight: 700 }}>
+              <span className={totalMapped > 0 ? 'badge-status-booking' : ''} style={totalMapped > 0 ? { padding: '2px 7px' } : { background: 'var(--bg-subtle)', color: 'var(--text-muted)', padding: '2px 7px', borderRadius: '4px', fontWeight: 600 }}>
                 🔒 Di-Mapping: {totalMapped} unit
               </span>
-              <span style={{ background: readyBebas > 0 ? '#DCFCE7' : '#FEE2E2', color: readyBebas > 0 ? '#15803D' : '#DC2626', padding: '2px 7px', borderRadius: '4px', fontWeight: 700 }}>
+              <span className={readyBebas > 0 ? 'badge-status-ready' : 'badge-status-empty'} style={{ padding: '2px 7px' }}>
                 ✓ Ready Bebas: {readyBebas} unit
               </span>
             </div>
@@ -285,18 +285,18 @@ const StockForm = ({ show, item, onClose, onSave }) => {
             {/* Panel Input Mapping Baru jika Button Mapping diklik */}
             {showMappingInput && (
               <div style={{
-                background: '#FFFFFF',
-                border: '1px solid #BFDBFE',
+                background: 'var(--bg-card)',
+                border: '1px solid var(--border-default)',
                 borderRadius: '6px',
                 padding: '0.7rem',
                 marginBottom: '0.75rem'
               }}>
-                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: '#1E40AF', marginBottom: '0.45rem' }}>
+                <div style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--dell-primary)', marginBottom: '0.45rem' }}>
                   Form Input Mapping Sales:
                 </div>
                 <div style={{ display: 'grid', gridTemplateColumns: '2fr 1fr 2fr', gap: '0.5rem', marginBottom: '0.45rem' }}>
                   <div>
-                    <label style={{ display: 'block', fontSize: '0.71rem', fontWeight: 600, color: '#475569', marginBottom: '2px' }}>
+                    <label style={{ display: 'block', fontSize: '0.71rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '2px' }}>
                       Nama Sales Siapa *
                     </label>
                     <input
@@ -371,7 +371,7 @@ const StockForm = ({ show, item, onClose, onSave }) => {
             {/* Daftar Mapping Aktif */}
             {mappings.length > 0 ? (
               <div style={{ display: 'flex', flexDirection: 'column', gap: '0.35rem' }}>
-                <div style={{ fontSize: '0.72rem', fontWeight: 600, color: '#475569', textTransform: 'uppercase' }}>
+                <div style={{ fontSize: '0.72rem', fontWeight: 600, color: 'var(--text-secondary)', textTransform: 'uppercase' }}>
                   Daftar Sales yang Mapping ({mappings.length}):
                 </div>
                 {mappings.map((m) => (
@@ -381,27 +381,20 @@ const StockForm = ({ show, item, onClose, onSave }) => {
                       display: 'flex',
                       alignItems: 'center',
                       justifyContent: 'space-between',
-                      background: '#FFFFFF',
-                      border: '1px solid #CBD5E1',
+                      background: 'var(--bg-card)',
+                      border: '1px solid var(--border-default)',
                       borderRadius: '6px',
                       padding: '5px 8px',
                       fontSize: '0.78rem'
                     }}
                   >
                     <div style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
-                      <span style={{ fontWeight: 700, color: '#1E293B' }}>{m.sales}</span>
-                      <span style={{
-                        background: '#FEF3C7',
-                        color: '#B45309',
-                        padding: '1px 6px',
-                        borderRadius: '4px',
-                        fontWeight: 700,
-                        fontSize: '0.72rem'
-                      }}>
+                      <span style={{ fontWeight: 700, color: 'var(--text-primary)' }}>{m.sales}</span>
+                      <span className="badge-status-booking" style={{ padding: '1px 6px' }}>
                         {m.qty} unit
                       </span>
                       {m.note && (
-                        <span style={{ color: '#64748B', fontSize: '0.72rem' }}>
+                        <span style={{ color: 'var(--text-muted)', fontSize: '0.72rem' }}>
                           ({m.note})
                         </span>
                       )}

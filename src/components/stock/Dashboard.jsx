@@ -1,6 +1,6 @@
 import React from 'react';
 import { PackageCheck, Laptop, Archive, AlertTriangle, BookmarkCheck, CheckCircle2 } from 'lucide-react';
-import { getBookedQty, getAvailableQty } from '../utils/stockUtils';
+import { getBookedQty, getAvailableQty } from '../../utils/stockUtils';
 
 const Dashboard = ({ items }) => {
   const readyItems = items.filter(u => u.qty > 0);
@@ -35,25 +35,25 @@ const Dashboard = ({ items }) => {
       </div>
 
       {/* Stok Di-Booking / Mapping (Hold) */}
-      <div className="metric-card" style={{ borderLeft: '3px solid #F59E0B' }}>
-        <div className="metric-icon" style={{ background: '#FEF3C7', color: '#D97706' }}>
+      <div className="metric-card metric-card-booking">
+        <div className="metric-icon icon-booking">
           <BookmarkCheck size={15} />
         </div>
         <div className="metric-data">
           <span className="metric-label">Stok Booking (Mapping)</span>
-          <div className="metric-value" style={{ color: '#D97706' }}>{totalBooked} Unit</div>
+          <div className="metric-value color-booking">{totalBooked} Unit</div>
           <span className="metric-subtext">Hold pesanan sales/proyek</span>
         </div>
       </div>
 
       {/* Stok Ready Bebas Jual */}
-      <div className="metric-card" style={{ borderLeft: '3px solid #10B981' }}>
-        <div className="metric-icon" style={{ background: '#DCFCE7', color: '#16A34A' }}>
+      <div className="metric-card metric-card-ready">
+        <div className="metric-icon icon-ready-free">
           <CheckCircle2 size={15} />
         </div>
         <div className="metric-data">
           <span className="metric-label">Stok Ready Bebas Jual</span>
-          <div className="metric-value" style={{ color: '#059669' }}>{totalAvailable} Unit</div>
+          <div className="metric-value color-ready-free">{totalAvailable} Unit</div>
           <span className="metric-subtext">Bebas ditawarkan ke sales</span>
         </div>
       </div>

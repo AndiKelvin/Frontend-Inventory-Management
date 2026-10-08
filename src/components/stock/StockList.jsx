@@ -1,8 +1,40 @@
-import React from 'react';
-import { MapPin, UserCheck, Trash2, Edit, Info } from 'lucide-react';
-import { getBookedQty, getAvailableQty, parseNotesAndMapping } from '../utils/stockUtils';
+import React, { useState } from 'react';
+import { MapPin, UserCheck, Trash2, Edit, Info, Copy, Check } from 'lucide-react';
+import { getBookedQty, getAvailableQty, parseNotesAndMapping, generateStockShareText } from '../../utils/stockUtils';
+import BrandLogo from '../common/BrandLogo';
 
-const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDelete, onEdit }) => {
+const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDelete, onEdit, onToast }) => {
+  const [copiedId, setCopiedId] = useState(null);
+
+  const handleCopyInfo = async (item) => {
+    try {
+      const textToCopy = generateStockShareText(item);
+      if (navigator?.clipboard?.writeText) {
+        await navigator.clipboard.writeText(textToCopy);
+      } else {
+        const textArea = document.createElement('textarea');
+        textArea.value = textToCopy;
+        textArea.style.position = 'fixed';
+        textArea.style.opacity = '0';
+        document.body.appendChild(textArea);
+        textArea.focus();
+        textArea.select();
+        document.execCommand('copy');
+        document.body.removeChild(textArea);
+      }
+      setCopiedId(item.id);
+      setTimeout(() => setCopiedId(null), 1800);
+      if (onToast) {
+        onToast(`✓ Info stok "${item.name}" berhasil disalin ke clipboard`);
+      }
+    } catch (err) {
+      console.error('Gagal menyalin info stok:', err);
+      if (onToast) {
+        onToast('⚠️ Gagal menyalin info ke clipboard');
+      }
+    }
+  };
+
   const formatCategory = (cat) => {
     switch (cat) {
       case 'laptop': return 'Laptop / Notebook';
@@ -41,14 +73,14 @@ const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDele
           <thead>
             <tr>
               <th style={{width: '44px', textAlign: 'center'}}>No</th>
-              <th style={{width: '105px'}}>Brand</th>
+              <th style={{width: '80px', textAlign: 'center'}}>Brand</th>
               <th style={{width: '125px'}}>Part Number</th>
               <th>Nama Perangkat & Tipe</th>
               <th style={{width: '110px'}}>Kategori</th>
               <th style={{width: '220px'}}>Spesifikasi Ringkas</th>
               <th style={{width: '145px', textAlign: 'center'}}>Stok Berjalan</th>
               <th style={{minWidth: '180px'}}>Lokasi, Mapping & Keterangan</th>
-              <th style={{width: '90px', textAlign: 'center'}}>Aksi</th>
+              <th style={{width: '105px', textAlign: 'center'}}>Aksi</th>
             </tr>
           </thead>
           <tbody>
@@ -63,10 +95,8 @@ const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDele
               return (
                 <tr key={item.id} className={isSold ? 'row-sold' : ''}>
                   <td style={{textAlign: 'center', fontWeight: 600, color: '#94A3B8'}}>{index + 1}</td>
-                  <td>
-                    <span className={`brand-pill ${getBrandClass(item.brand)}`}>
-                      {item.brand}
-                    </span>
+                  <td style={{textAlign: 'center'}}>
+                    <BrandLogo brand={item.brand} size={22} showLabel={false} />
                   </td>
                   <td>
                     <span className="part-number-code">{item.partNumber || '-'}</span>
@@ -106,56 +136,24 @@ const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDele
                     {/* Indikator Booking & Ready Bebas */}
                     {item.qty > 0 && booked > 0 && (
                       <div style={{ marginTop: '4px', display: 'flex', flexDirection: 'column', gap: '2px', alignItems: 'center' }}>
-                        <span style={{
-                          fontSize: '0.66rem',
-                          fontWeight: 700,
-                          color: '#B45309',
-                          background: '#FEF3C7',
-                          padding: '1px 5px',
-                          borderRadius: '4px',
-                          whiteSpace: 'nowrap',
-                          border: '1px solid #FDE68A'
-                        }}>
+                        <span className="badge-status-booking">
                           🔒 {booked} Booking
                         </span>
-                        <span style={{
-                          fontSize: '0.66rem',
-                          fontWeight: 700,
-                          color: '#15803D',
-                          background: '#DCFCE7',
-                          padding: '1px 5px',
-                          borderRadius: '4px',
-                          whiteSpace: 'nowrap',
-                          border: '1px solid #BBF7D0'
-                        }}>
+                        <span className="badge-status-ready">
                           ✓ {available} Ready Bebas
                         </span>
                       </div>
                     )}
                     {item.qty > 0 && booked === 0 && (
                       <div style={{ marginTop: '4px' }}>
-                        <span style={{
-                          fontSize: '0.66rem',
-                          fontWeight: 600,
-                          color: '#15803D',
-                          background: '#F0FDF4',
-                          padding: '1px 5px',
-                          borderRadius: '4px'
-                        }}>
+                        <span className="badge-status-available">
                           ✓ Bebas Jual
                         </span>
                       </div>
                     )}
                     {item.qty === 0 && (
                       <div style={{ marginTop: '4px' }}>
-                        <span style={{
-                          fontSize: '0.66rem',
-                          fontWeight: 600,
-                          color: '#DC2626',
-                          background: '#FEE2E2',
-                          padding: '1px 5px',
-                          borderRadius: '4px'
-                        }}>
+                        <span className="badge-status-empty">
                           Habis
                         </span>
                       </div>
@@ -171,22 +169,10 @@ const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDele
                       {/* Mapping Booking Sales: HANYA TAMPIL JIKA BENAR-BENAR ADA BOOKING DARI SALES */}
                       {itemMappings && itemMappings.length > 0 && (
                         <div
-                          className="meta-line meta-map"
+                          className="meta-line meta-map badge-mapping-pill"
                           title="Alokasi Booking / Mapping Sales"
-                          style={{
-                            color: '#B45309',
-                            background: '#FEF3C7',
-                            padding: '2px 6px',
-                            borderRadius: '4px',
-                            display: 'inline-flex',
-                            alignItems: 'center',
-                            gap: '4px',
-                            width: 'fit-content',
-                            marginTop: '2px',
-                            border: '1px solid #FDE68A'
-                          }}
                         >
-                          <UserCheck size={12} color="#D97706" />
+                          <UserCheck size={12} className="meta-map-icon" />
                           <span style={{ fontWeight: 600 }}>
                             Mapping: {itemMappings.map(m => `${m.sales}${m.note ? ` - ${m.note}` : ''} (${m.qty})`).join(', ')}
                           </span>
@@ -198,16 +184,8 @@ const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDele
                         <div
                           className="meta-line meta-note"
                           title="Keterangan Produk"
-                          style={{
-                            color: '#475569',
-                            fontSize: '0.73rem',
-                            display: 'flex',
-                            alignItems: 'flex-start',
-                            gap: '4px',
-                            marginTop: '2px'
-                          }}
                         >
-                          <Info size={12} color="#64748B" style={{ marginTop: '2px', flexShrink: 0 }} />
+                          <Info size={12} className="meta-note-icon" />
                           <span>{itemKeterangan}</span>
                         </div>
                       )}
@@ -215,6 +193,13 @@ const StockList = ({ items, onStockChange, onRequestReduce, onRequestAdd, onDele
                   </td>
                   <td>
                     <div className="row-actions">
+                      <button
+                        className={`btn-row-action copy ${copiedId === item.id ? 'copied' : ''}`}
+                        onClick={() => handleCopyInfo(item)}
+                        title={copiedId === item.id ? "Berhasil disalin!" : "Salin Info Stok (Format WhatsApp/Chat)"}
+                      >
+                        {copiedId === item.id ? <Check size={13} color="#10B981" /> : <Copy size={13} />}
+                      </button>
                       <button className="btn-row-action" onClick={() => onEdit(item.id)} title="Edit"><Edit size={13} /></button>
                       <button className="btn-row-action delete" onClick={() => onDelete(item.id)} title="Hapus"><Trash2 size={13} /></button>
                     </div>

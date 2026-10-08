@@ -131,3 +131,57 @@ export const getAvailableQty = (item) => {
   return Math.max(0, item.qty - booked);
 };
 
+/**
+ * Menyusun teks rapi informasi stok barang siap salin untuk WhatsApp atau chat
+ * @param {Object} item
+ * @returns {string}
+ */
+export const generateStockShareText = (item) => {
+  if (!item) return '';
+  const booked = getBookedQty(item);
+  const available = getAvailableQty(item);
+  const { mappings, keterangan } = parseNotesAndMapping(item.notes || '');
+
+  const brand = (item.brand || '').trim();
+  const name = (item.name || '').trim();
+  const partNumber = (item.partNumber || '').trim();
+
+  const lines = [
+    `*${brand ? `${brand} ` : ''}${name}*`,
+    `Part Number: ${partNumber || '-'}`
+  ];
+
+  const specs = [];
+  if (item.cpu) specs.push(`CPU: ${item.cpu}`);
+  if (item.ram) specs.push(`RAM: ${item.ram}`);
+  if (item.storage) specs.push(`Storage: ${item.storage}`);
+  if (specs.length > 0) {
+    lines.push(`Spesifikasi: ${specs.join(' | ')}`);
+  }
+
+  const qty = parseInt(item.qty, 10) || 0;
+  if (qty === 0) {
+    lines.push(`Status Stok: *HABIS (0 Unit)*`);
+  } else {
+    lines.push(`Total Stok Fisik: *${qty} Unit*`);
+    if (booked > 0) {
+      lines.push(`- Ready Bebas Jual: *${available} Unit*`);
+      const mapDetails = mappings.map(m => `${m.sales}${m.note ? ` (${m.note})` : ''}: ${m.qty}`).join(', ');
+      lines.push(`- Di-Booking (Mapping): ${booked} Unit${mapDetails ? ` [${mapDetails}]` : ''}`);
+    } else {
+      lines.push(`- Status: *Ready Bebas Jual (${qty} Unit)*`);
+    }
+  }
+
+  if (item.location) {
+    lines.push(`Lokasi: ${item.location}`);
+  }
+
+  if (keterangan) {
+    lines.push(`Catatan: ${keterangan}`);
+  }
+
+  return lines.join('\n');
+};
+
+
